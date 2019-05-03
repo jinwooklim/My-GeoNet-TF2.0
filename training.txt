@@ -1,0 +1,31 @@
+##### Train rigid
+## Windows obd2->posenet(6)
+python main.py --mode=train_rigid --dataset_dir=E:\all_dataset\KITTI_dump --checkpoint_dir=./models/rigid/ --learning_rate=0.0002 --seq_length=3 --batch_size=4 --max_steps=606000 --save_ckpt_freq=5000 --useobd=True
+
+
+
+python geonet_main.py --mode=train_rigid --dataset_dir=E:\all_dataset\KITTI_dump --checkpoint_dir=./models/rigid/ --learning_rate=0.0002 --seq_length=3 --batch_size=4 --max_steps=606000 --save_ckpt_freq=5000 --useobd=True
+
+
+python geonet_main.py --mode=train_rigid --dataset_dir=D:\\PROJECT\\smartcar\\dump_pose\\ --checkpoint_dir=./models/rigid/ --learning_rate=0.0002 --seq_length=3 --batch_size=4 --max_steps=606000 --save_ckpt_freq=5000 --useobd=True
+
+python geonet_main.py --mode=train_pose --dataset_dir=E:\KITTI_dump\ --checkpoint_dir=./models/rigid_depth_anb_pose/ --init_ckpt_file=./models/only_depth/model-600000 --learning_rate=0.0002 --seq_length=3 --batch_size=4 --max_steps=606000 --save_ckpt_freq=5000 --useobd=True
+
+
+## No OBD
+python geonet_main.py --mode=train_rigid --dataset_dir=D:\\PROJECT\\smartcar\\dump_pose\\ --checkpoint_dir=./models/rigid/ --learning_rate=0.0002 --seq_length=3 --batch_size=4 --max_steps=606000 --save_ckpt_freq=5000 --useobd=False
+
+
+
+
+##### residual flow
+## Windows obd2->posenet(6)
+#python geonet_main.py --mode=train_flow --dataset_dir=D:\\PROJECT\\smartcar\\dump_pose\\ --init_ckpt_file=./models/rigid/rigid_obd_in_posenet/model-600000 --checkpoint_dir=./models/flow/res/nonrigid_obd_in_posenet/ --learning_rate=2e-3 --seq_length=3 --batch_size=4 --flownet_type=residual --max_steps=600100 --save_ckpt_freq=10000 --useobd=True
+
+
+
+
+
+##### Train fine
+python geonet_main.py --mode=fine --dataset_dir=D:\\PROJECT\\smartcar\\dump_pose\\ --init_ckpt_file=./models/rigid/rigid_obd_in_posenet_222/model-600000 --sec_ckpt_file=C:\Users\jwlim\PycharmProjects\geonet_ubuntu_exp\pre_model\models\geonet_resflownet/model --checkpoint_dir=./models/flow/res/fine_nonrigid_obd_in_posenet/ --learning_rate=2e-4 --seq_length=3 --batch_size=4 --max_steps=200200 --save_ckpt_freq=10000 --useobd=True --max_to_keep=20
+

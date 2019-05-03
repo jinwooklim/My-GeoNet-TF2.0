@@ -1,0 +1,13 @@
+python data/prepare_train_data.py --dataset_dir=D:\PROJECT\smartcar\KITTI_odometry\dataset\ --dataset_name=kitti_odom --dump_root=E:\all_dataset\KITTI_dump\ --seq_length=3 --img_height=128 --img_width=416 --num_threads=4 --remove_static
+
+python data/prepare_train_data.py --dataset_dir=D:\PROJECT\smartcar\KITTI_odometry\dataset\ --dataset_name=kitti_odom --dump_root=E:\KITTI_dump\ --seq_length=3 --img_height=128 --img_width=416 --num_threads=4 --remove_static
+
+
+
+
+
+
+python data/prepare_train_data.py --dataset_dir=D:\PROJECT\smartcar\KITTI_odometry\dataset\ --dataset_name=kitti_odom --dump_root=E:\KITTI_dump\ --seq_length=3 --img_height=128 --img_width=416 --num_threads=4 --remove_static --test_seq=09
+
+
+python data/prepare_train_data.py --dataset_dir=D:\PROJECT\smartcar\KITTI_odometry\dataset\ --dataset_name=kitti_odom --dump_root=E:\KITTI_dump\ --seq_length=3 --img_height=128 --img_width=416 --num_threads=4 --remove_static --test_seq=10
