@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 import os
+import time
 import pprint
 from data_loader import DataLoader
 from geonet_model import *
@@ -12,12 +13,14 @@ def train(opt):
     if not os.path.exists(opt['checkpoint_dir']):
         os.makedirs(opt['checkpoint_dir'])
 
-    # ckpt = tf.train.Checkpoint(step=tf.Variable(1), optimizer=optimizer, net=model)
-    # manager = tf.train.CheckpointManager(ckpt, opt['checkpoint_dir'],  max_to_keep=opt['max_to_keep'])
-
     data_loader = DataLoader(opt)
     optimizer = tf.optimizers.Adam(opt['learning_rate'], 0.9)
     model = GeoNet(opt)
+
+    ckpt = tf.train.Checkpoint(optimizer=opt, net=model)
+    ckpt_manager = tf.train.CheckpointManager(ckpt, opt['checkpoint_dir'], max_to_keep=opt['max_to_keep'])
+
+    start_time = time.time()
     for step in range(opt['max_steps']):
         with tf.GradientTape() as tape:
             src_image_stack, tgt_image, intrinsics = data_loader.load_train_batch()
@@ -27,8 +30,14 @@ def train(opt):
                           tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, pred_disp)
             gradients = tape.gradient(loss, model.trainable_variables)
             optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-            if (step % 100):
-                print("loss : ", loss)
+            if (step % 100 == 0):
+                time_per_iter = (time.time() - start_time) / 100
+                start_time = time.time()
+                print('Iteration: [%7d] | Time: %4.4fs/iter | Loss: %.3f'% (step, time_per_iter, loss))
+
+            if (step % opt['save_ckpt_freq'] == 0):
+                save_path = ckpt_manager.save()
+                print("Saved checkpoint for step {}: {}".format(int(ckpt.step), save_path))
 
 
 if __name__ == "__main__":
@@ -47,7 +56,7 @@ if __name__ == "__main__":
            'learning_rate': 0.0002,
            'max_to_keep': 10,
            'max_steps': 600000,
-           'save_ckpt_freq': 5000,
+           'save_ckpt_freq': 10,
            'alpha_recon_image': 0.85,
 
            'scale_normalize': False,

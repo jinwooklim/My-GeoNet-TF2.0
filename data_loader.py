@@ -4,6 +4,7 @@ import os
 import random
 import utils2
 
+
 class DataLoader(object):
     def __init__(self, opt=None):
         self.opt = opt
