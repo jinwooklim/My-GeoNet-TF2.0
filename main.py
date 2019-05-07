@@ -17,7 +17,7 @@ def train(opt):
     optimizer = tf.optimizers.Adam(opt['learning_rate'], 0.9)
     model = GeoNet(opt)
 
-    ckpt = tf.train.Checkpoint(optimizer=opt, net=model)
+    ckpt = tf.train.Checkpoint(optimizer=optimizer, net=model)
     ckpt_manager = tf.train.CheckpointManager(ckpt, opt['checkpoint_dir'], max_to_keep=opt['max_to_keep'])
 
     start_time = time.time()
@@ -37,7 +37,7 @@ def train(opt):
 
             if (step % opt['save_ckpt_freq'] == 0):
                 save_path = ckpt_manager.save()
-                print("Saved checkpoint for step {}: {}".format(int(ckpt.step), save_path))
+                print("Saved checkpoint for step {}: {}".format(step, save_path))
 
 
 if __name__ == "__main__":
