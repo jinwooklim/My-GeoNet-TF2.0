@@ -12,27 +12,23 @@ def train(opt):
     if not os.path.exists(opt['checkpoint_dir']):
         os.makedirs(opt['checkpoint_dir'])
 
-    data_loader = DataLoader(opt)
-    model = GeoNet(opt)
-    optimizer = tf.optimizers.Adam(opt['learning_rate'], 0.9)
-
     # ckpt = tf.train.Checkpoint(step=tf.Variable(1), optimizer=optimizer, net=model)
     # manager = tf.train.CheckpointManager(ckpt, opt['checkpoint_dir'],  max_to_keep=opt['max_to_keep'])
 
+    data_loader = DataLoader(opt)
+    optimizer = tf.optimizers.Adam(opt['learning_rate'], 0.9)
+    model = GeoNet(opt)
     for step in range(opt['max_steps']):
-        src_image_stack, tgt_image, intrinsics = data_loader.load_train_batch()
-
-        tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, pred_poses, pred_disp = model(
-                [tgt_image, src_image_stack, intrinsics])
-
         with tf.GradientTape() as tape:
+            src_image_stack, tgt_image, intrinsics = data_loader.load_train_batch()
+            tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, pred_poses, pred_disp = model(
+                [tgt_image, src_image_stack, intrinsics], training=True)
             loss = losses(opt['mode'], opt['num_scales'], opt['num_source'], opt['rigid_warp_weight'], opt['disp_smooth_weight'],
-                      tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, pred_disp)
-
-        gradients = tape.gradient(loss, model.trainable_variables)
-        optimizer.apply_gradients(zip(gradients, model.trainable_variables))
-        if (step % 100):
-            print("loss : ", loss)
+                          tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, pred_disp)
+            gradients = tape.gradient(loss, model.trainable_variables)
+            optimizer.apply_gradients(zip(gradients, model.trainable_variables))
+            if (step % 100):
+                print("loss : ", loss)
 
 
 if __name__ == "__main__":

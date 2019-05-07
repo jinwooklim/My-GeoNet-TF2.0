@@ -91,6 +91,10 @@ class DataLoader(object):
             src_image_stack = image_all[:, :, :, 3:]
             intrinsics = self.get_multi_scale_intrinsics(intrinsics, opt['num_scales'])
 
+            src_image_stack = tf.cast(src_image_stack, dtype=tf.float32)
+            tgt_image = tf.cast(tgt_image, dtype=tf.float32)
+            intrinsics = tf.cast(intrinsics, dtype=tf.float32)
+
             return src_image_stack, tgt_image, intrinsics
 
     def make_intrinsics_matrix(self, fx, fy, cx, cy):
