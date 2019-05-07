@@ -27,7 +27,7 @@ class DataLoader(object):
 
         def _img_parse_function(filename):
             image_string = tf.io.read_file(filename)
-            image_decoded = tf.image.decode_image(image_string)
+            image_decoded = tf.image.decode_image(image_string, dtype=tf.uint8)
             return image_decoded
 
         def _cam_parse_function(filename):
@@ -35,6 +35,7 @@ class DataLoader(object):
             rec_def = [1.] * 9
             text_decoded = tf.io.decode_csv(text_string, rec_def)
             text_decoded = tf.reshape(text_decoded, [3, 3])
+            text_decoded = tf.cast(text_decoded, dtype=tf.float32)
             return text_decoded
 
         def _obd_parse_function(filename):
@@ -42,6 +43,7 @@ class DataLoader(object):
             rec_def = [1.] * (2*(opt['seq_length']-1))
             text_decoded = tf.io.decode_csv(text_string, rec_def)
             text_decoded = tf.reshape(text_decoded, [(opt['seq_length']-1), 2])
+            text_decoded = tf.cast(text_decoded, dtype=tf.float32)
             return text_decoded
 
         # Load the list of training files into queues

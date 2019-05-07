@@ -37,14 +37,15 @@ img = cv2.cvtColor(img, cv2.COLOR_BGRA2BGR)
 
 
 rows, cols = img.shape[:2]
-obd_text = np.genfromtxt('E:\\all_dataset\\KITTI_dump\\virtual_obd\\09.txt', delimiter=' ')
+seq = "03"
+obd_text = np.genfromtxt('E:\\all_dataset\\KITTI_dump\\virtual_obd\\%s.txt'%seq, delimiter=' ')
 rows, cols = img.shape[:2]
 
 blank = np.ones((700, 1500, 3), dtype=np.uint8)
 blank = blank * 255
 
 fourcc = cv2.VideoWriter_fourcc(*'DIVX')
-out = cv2.VideoWriter('output.avi', fourcc, 30.0, (2200, 700))
+out = cv2.VideoWriter('obd_%s.avi'%seq, fourcc, 30.0, (2200, 700))
 
 for i, data in enumerate(obd_text):
     tx, tz, theta = get_pose_by_obd(data)
@@ -75,33 +76,33 @@ for i, data in enumerate(obd_text):
 
 
 
-    org = ((int)(cols/2)+650, (int)(rows/2)+135)
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    fontscale = 1.5
-    thickness = 4
-    red = (255, 0, 0)
-    str_tx = "tx : " + str(tx)
-    cv2.putText(dst, str_tx, org, font, fontscale, red, thickness, cv2.LINE_AA)
+    # org = ((int)(cols/2)+650, (int)(rows/2)+135)
+    # font = cv2.FONT_HERSHEY_SIMPLEX
+    # fontscale = 1.5
+    # thickness = 4
+    # red = (255, 0, 0)
+    # str_tx = "tx : " + str(tx)
+    # cv2.putText(dst, str_tx, org, font, fontscale, red, thickness, cv2.LINE_AA)
+    #
+    # org = ((int)(cols/2)+650, (int)(rows/2)+185)
+    # font = cv2.FONT_HERSHEY_SIMPLEX
+    # fontscale = 1.5
+    # thickness = 4
+    # red = (255, 0, 0)
+    # str_tz = "tz : " + str(tz)
+    # cv2.putText(dst, str_tz, org, font, fontscale, red, thickness, cv2.LINE_AA)
+    #
+    # org = ((int)(cols/2)+650, (int)(rows/2)+235)
+    # font = cv2.FONT_HERSHEY_SIMPLEX
+    # fontscale = 1.5
+    # thickness = 4
+    # red = (255, 0, 0)
+    # str_theta = "theta : " + str(theta)
+    # cv2.putText(dst, str_theta, org, font, fontscale, red, thickness, cv2.LINE_AA)
 
-    org = ((int)(cols/2)+650, (int)(rows/2)+185)
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    fontscale = 1.5
-    thickness = 4
-    red = (255, 0, 0)
-    str_tz = "tz : " + str(tz)
-    cv2.putText(dst, str_tz, org, font, fontscale, red, thickness, cv2.LINE_AA)
-
-    org = ((int)(cols/2)+650, (int)(rows/2)+235)
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    fontscale = 1.5
-    thickness = 4
-    red = (255, 0, 0)
-    str_theta = "theta : " + str(theta)
-    cv2.putText(dst, str_theta, org, font, fontscale, red, thickness, cv2.LINE_AA)
-
-    cv2.imshow('Sequence 09', dst)
-    cv2.waitKey(0) # 33
-    # out.write(dst)
+    # cv2.imshow('Sequence 09', dst)
+    # cv2.waitKey(0) # 33
+    out.write(dst)
 
 out.release()
 cv2.destroyAllWindows()

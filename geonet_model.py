@@ -1,6 +1,6 @@
 from geonet_nets import *
 from utils import *
-
+import tensorflow as tf
 
 # @tf.function
 def scale_pyramid(img, num_scales):
@@ -13,11 +13,11 @@ def scale_pyramid(img, num_scales):
             ratio = 2 ** (i + 1)
             nh = int(h / ratio)
             nw = int(w / ratio)
-            scaled_imgs.append(tf.image.resize(img, [nh, nw]))
+            scaled_imgs.append(tf.cast(tf.image.resize(img, [nh, nw]), dtype=tf.uint8))
     return scaled_imgs
 
 
-@tf.function
+# @tf.function
 def spatial_normalize(disp):
     _, curr_h, curr_w, curr_c = disp.get_shape().as_list()
     disp_mean = tf.reduce_mean(disp, axis=[1,2,3], keep_dims=True)
@@ -30,24 +30,32 @@ def SSIM(x, y):
     C1 = 0.01 ** 2
     C2 = 0.03 ** 2
 
-    mu_x = layers.AveragePooling2D(3, 1, 'same')(x)
-    mu_y = layers.AveragePooling2D(3, 1, 'same')(y)
+    x = tf.cast(x, dtype=tf.float32)
+    y = tf.cast(y, dtype=tf.float32)
 
-    sigma_x  = layers.AveragePooling2D(3, 1, 'same')(x**2) - mu_x ** 2
-    sigma_y  = layers.AveragePooling2D(3, 1, 'same')(y**2) - mu_y ** 2
-    sigma_xy = layers.AveragePooling2D(3, 1, 'same')(x*y) - mu_x * mu_y
+    mu_x = tf.nn.avg_pool2d(x, 3, 1, 'SAME')
+    mu_y = tf.nn.avg_pool2d(y, 3, 1, 'SAME')
+
+    sigma_x = tf.nn.avg_pool2d(x**2, 3, 1, 'SAME') - mu_x ** 2
+    sigma_y = tf.nn.avg_pool2d(y**2, 3, 1, 'SAME') - mu_y ** 2
+    sigma_xy = tf.nn.avg_pool2d(x*y, 3, 1, 'SAME') - mu_x * mu_y
 
     SSIM_n = (2 * mu_x * mu_y + C1) * (2 * sigma_xy + C2)
     SSIM_d = (mu_x ** 2 + mu_y ** 2 + C1) * (sigma_x + sigma_y + C2)
 
     SSIM = SSIM_n / SSIM_d
 
+    x = tf.cast(x, dtype=tf.uint8)
+    y = tf.cast(y, dtype=tf.uint8)
+
     return tf.clip_by_value((1 - SSIM) / 2, 0, 1)
 
 
-@tf.function
+# @tf.function
 def image_similarity(alpha_recon_image, x, y):
-    return alpha_recon_image * SSIM(x, y) + (1 - alpha_recon_image) * tf.abs(x-y)
+    x = tf.cast(x, dtype=tf.float32)
+    y = tf.cast(y, dtype=tf.float32)
+    return alpha_recon_image * SSIM(x, y) + (1.0 - alpha_recon_image) * tf.math.abs(x-y)
 
 
 # @tf.function
@@ -61,10 +69,6 @@ def build_rigid_flow_warping(bs, num_scales, num_source, alpha_recon_image, src_
                              pred_poses[:,i,:], intrinsics[:,s,:,:], False)
             bwd_rigid_flow = compute_rigid_flow(tf.squeeze(pred_depth[s][bs*(i+1):bs*(i+2)], axis=3),
                              pred_poses[:,i,:], intrinsics[:,s,:,:], True)
-            # fwd_rigid_flow = compute_rigid_flow(pred_depth[s][:bs],
-            #                  pred_poses[:,i,:], intrinsics[:,s,:,:], False)
-            # bwd_rigid_flow = compute_rigid_flow(pred_depth[s][bs*(i+1):bs*(i+2)],
-            #                  pred_poses[:,i,:], intrinsics[:,s,:,:], True)
             if not i:
                 fwd_rigid_flow_concat = fwd_rigid_flow
                 bwd_rigid_flow_concat = bwd_rigid_flow
@@ -87,19 +91,19 @@ def build_rigid_flow_warping(bs, num_scales, num_source, alpha_recon_image, src_
     return fwd_rigid_error_pyramid, bwd_rigid_error_pyramid
 
 
-@tf.function
+# @tf.function
 def gradient_x(img):
     gx = img[:,:,:-1,:] - img[:,:,1:,:]
     return gx
 
 
-@tf.function
+# @tf.function
 def gradient_y(img):
     gy = img[:,:-1,:,:] - img[:,1:,:,:]
     return gy
 
 
-@tf.function
+# @tf.function
 def compute_smooth_loss(disp, img):
     disp_gradients_x = gradient_x(disp)
     disp_gradients_y = gradient_y(disp)
@@ -107,8 +111,8 @@ def compute_smooth_loss(disp, img):
     image_gradients_x = gradient_x(img)
     image_gradients_y = gradient_y(img)
 
-    weights_x = tf.exp(-tf.reduce_mean(tf.abs(image_gradients_x), 3, keep_dims=True))
-    weights_y = tf.exp(-tf.reduce_mean(tf.abs(image_gradients_y), 3, keep_dims=True))
+    weights_x = tf.math.exp(-tf.math.reduce_mean(tf.math.abs(image_gradients_x), 3, keep_dims=True))
+    weights_y = tf.math.exp(-tf.math.reduce_mean(tf.math.abs(image_gradients_y), 3, keep_dims=True))
 
     smoothness_x = disp_gradients_x * weights_x
     smoothness_y = disp_gradients_y * weights_y
@@ -116,7 +120,7 @@ def compute_smooth_loss(disp, img):
     return tf.reduce_mean(tf.abs(smoothness_x)) + tf.reduce_mean(tf.abs(smoothness_y))
 
 
-@tf.function
+# @tf.function
 def losses(mode, num_scales, num_source, rigid_warp_weight, disp_smooth_weight,
            tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, pred_disp):
     rigid_warp_loss = 0

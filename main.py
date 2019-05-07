@@ -24,11 +24,10 @@ def train(opt):
 
         tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, pred_poses, pred_disp = model(
                 [tgt_image, src_image_stack, intrinsics])
-        print(pred_poses)
+
         with tf.GradientTape() as tape:
-            loss = losses(opt['mode'], opt['num_scales'], opt['rigid_warp_weight'], opt['disp_smooth_weight'],
-                      tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid,
-                      pred_disp)
+            loss = losses(opt['mode'], opt['num_scales'], opt['num_source'], opt['rigid_warp_weight'], opt['disp_smooth_weight'],
+                      tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, pred_disp)
 
         gradients = tape.gradient(loss, model.trainable_variables)
         optimizer.apply_gradients(zip(gradients, model.trainable_variables))

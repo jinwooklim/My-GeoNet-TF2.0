@@ -63,7 +63,7 @@ class PoseNet(Model):
         self.pose_pred = layers.Conv2D(6 * self.opt['num_source'], (1, 1), (1, 1), padding=padding, kernel_regularizer=kernel_regularizer)
 
     def call(self, inputs, training=None, mask=None):
-        inputs = tf.cast(inputs,dtype=tf.float32)  #####################################################################
+        inputs = tf.cast(inputs, dtype=tf.float32)  ####################################################################
         x = self.conv1(inputs)
         x = self.bn1(x, training=training)
         x = self.conv2(x)

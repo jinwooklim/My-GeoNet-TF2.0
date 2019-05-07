@@ -4,6 +4,7 @@ from __future__ import division
 import numpy as np
 import tensorflow as tf
 
+
 def euler2mat(z, y, x):
   """Converts euler angles to rotation matrix
    TODO: remove the dimension for 'N' (deprecated for converting all source
@@ -54,6 +55,7 @@ def euler2mat(z, y, x):
   rotMat = tf.matmul(tf.matmul(xmat, ymat), zmat)
   return rotMat
 
+
 def pose_vec2mat(vec):
   """Converts 6DoF parameters to transformation matrix
   Args:
@@ -74,6 +76,7 @@ def pose_vec2mat(vec):
   transform_mat = tf.concat([rot_mat, translation], axis=2)
   transform_mat = tf.concat([transform_mat, filler], axis=1)
   return transform_mat
+
 
 def pixel2cam(depth, pixel_coords, intrinsics, is_homogeneous=True):
   """Transforms coordinates in the pixel frame to the camera frame.
@@ -96,6 +99,7 @@ def pixel2cam(depth, pixel_coords, intrinsics, is_homogeneous=True):
   cam_coords = tf.reshape(cam_coords, [batch, -1, height, width])
   return cam_coords
 
+
 def cam2pixel(cam_coords, proj):
   """Transforms coordinates in a camera frame to the pixel frame.
 
@@ -116,6 +120,7 @@ def cam2pixel(cam_coords, proj):
   pixel_coords = tf.concat([x_n, y_n], axis=1)
   pixel_coords = tf.reshape(pixel_coords, [batch, 2, height, width])
   return tf.transpose(pixel_coords, perm=[0, 2, 3, 1])
+
 
 def meshgrid(batch, height, width, is_homogeneous=True):
   """Construct a 2D meshgrid.
@@ -143,6 +148,7 @@ def meshgrid(batch, height, width, is_homogeneous=True):
   coords = tf.tile(tf.expand_dims(coords, 0), [batch, 1, 1, 1])
   return coords
 
+
 def flow_warp(src_img, flow):
   """ inverse warp a source image to the target image plane based on flow field
   Args:
@@ -157,6 +163,7 @@ def flow_warp(src_img, flow):
   src_pixel_coords = tgt_pixel_coords + flow
   output_img = bilinear_sampler(src_img, src_pixel_coords)
   return output_img
+
 
 def compute_rigid_flow(depth, pose, intrinsics, reverse_pose=False):
   """Compute the rigid flow from target image plane to source image
@@ -191,6 +198,7 @@ def compute_rigid_flow(depth, pose, intrinsics, reverse_pose=False):
   src_pixel_coords = cam2pixel(cam_coords, proj_tgt_cam_to_src_pixel)
   rigid_flow = src_pixel_coords - tgt_pixel_coords
   return rigid_flow
+
 
 def bilinear_sampler(imgs, coords):
   """Construct a new image by bilinear sampling from the input image.
