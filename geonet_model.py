@@ -26,7 +26,7 @@ def spatial_normalize(disp):
     return disp/disp_mean
 
 
-# @tf.function ## 이건 원래 tf.function
+@tf.function
 def SSIM(x, y):
     C1 = 0.01 ** 2
     C2 = 0.03 ** 2
@@ -134,7 +134,6 @@ def losses(mode, num_scales, num_source, rigid_warp_weight, disp_smooth_weight,
         if mode == 'train_rigid' and disp_smooth_weight > 0:
             disp_smooth_loss += disp_smooth_weight/(2**s) * compute_smooth_loss(pred_disp[s],
                             tf.concat([tgt_image_pyramid[s], src_image_concat_pyramid[s]], axis=0))
-        # print("s : ", s, rigid_warp_loss, disp_smooth_loss)
 
     # regularization_loss = tf.add_n(tf.losses.get_regularization_losses())
     total_loss = 0  # regularization_loss
@@ -207,4 +206,4 @@ class GeoNet(Model):
                                                                                     intrinsics,
                                                                                     pred_poses)
 
-        return [tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, pred_poses, pred_depth, fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid]
+        return [tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, pred_poses, pred_disp, pred_depth, fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid]
