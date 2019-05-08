@@ -58,7 +58,7 @@ def train(opt):
         for step in range(opt['max_steps']):
             with tf.GradientTape() as tape:
                 src_image_stack, tgt_image, intrinsics = data_loader.load_train_batch()
-                tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, pred_poses, pred_depth, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid = geonet(
+                tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, pred_poses, pred_depth, fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid = geonet(
                     [tgt_image, src_image_stack, intrinsics], training=True)
                 loss = losses(opt['mode'], opt['num_scales'], opt['num_source'], opt['rigid_warp_weight'],
                               opt['disp_smooth_weight'],
@@ -70,6 +70,9 @@ def train(opt):
                     time_per_iter = (time.time() - start_time) / 100
                     start_time = time.time()
                     print('Iteration: [%7d] | Time: %4.4fs/iter | Loss: %.3f'% (step, time_per_iter, loss))
+
+                if (step % 100 == 0):
+                    # Summary
                     # loss
                     tf.summary.scalar('loss', loss, step=step)
 
@@ -79,6 +82,10 @@ def train(opt):
 
                     # pred_disp
                     tf.summary.image('pred_depth', pred_depth[0], step=step)
+
+                    # rigid_ward
+                    tf.summary.image('fwd_rigid_warp_img', fwd_rigid_warp_pyramid[0]/255.0, step=step)
+                    tf.summary.image('bwd_rigid_warp_img', bwd_rigid_warp_pyramid[0]/255.0, step=step)
 
                     # pred_flow
                     color_fwd_flow = fl.flow_to_image(fwd_rigid_flow_pyramid[0][0,:,:,:].numpy())
@@ -90,7 +97,7 @@ def train(opt):
                     color_bwd_flow = tf.expand_dims(color_bwd_flow, axis=0)
                     tf.summary.image('color_bwd_flow', color_bwd_flow, step=step)
 
-                    # if (step % opt['save_ckpt_freq'] == 0) and step > 0:
+                # if (step % opt['save_ckpt_freq'] == 0) and step > 0:
                 if(step % opt['save_ckpt_freq'] == 0):
                     save_path = ckpt_manager.save()
                     print("Saved checkpoint for step {}: {}".format(step, save_path))

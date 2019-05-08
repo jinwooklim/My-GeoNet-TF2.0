@@ -83,7 +83,7 @@ def build_rigid_flow_warping(bs, num_scales, num_source, alpha_recon_image, src_
     fwd_rigid_error_pyramid = [image_similarity(alpha_recon_image, fwd_rigid_warp_pyramid[s], tgt_image_tile_pyramid[s]) for s in range(num_scales)]
     bwd_rigid_error_pyramid = [image_similarity(alpha_recon_image, bwd_rigid_warp_pyramid[s], src_image_concat_pyramid[s]) for s in range(num_scales)]
 
-    return fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid
+    return fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid
 
 
 @tf.function
@@ -196,7 +196,7 @@ class GeoNet(Model):
         pred_poses = self.pose_net(posenet_inputs, training=training)
 
         # print("111 : ", pred_poses) # (4, 2, 6)
-        fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid = build_rigid_flow_warping\
+        fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid = build_rigid_flow_warping\
                                                                                     (self.opt['batch_size'],
                                                                                     self.opt['num_scales'],
                                                                                     self.opt['num_source'],
@@ -207,4 +207,4 @@ class GeoNet(Model):
                                                                                     intrinsics,
                                                                                     pred_poses)
 
-        return [tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, pred_poses, pred_depth, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid]
+        return [tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, pred_poses, pred_depth, fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid]
