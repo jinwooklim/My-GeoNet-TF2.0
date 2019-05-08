@@ -27,7 +27,6 @@ opt = {'mode': "train_rigid",
        'learning_rate': 0.0002,
        'max_to_keep': 10,
        'max_steps': 600000,
-       'max_epoch': 31,  # 600,000 / 20,000 iter
        'save_ckpt_freq': 5000,
        'alpha_recon_image': 0.85,
 
