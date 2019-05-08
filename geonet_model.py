@@ -13,7 +13,7 @@ def scale_pyramid(img, num_scales):
             ratio = 2 ** (i + 1)
             nh = int(h / ratio)
             nw = int(w / ratio)
-            # scaled_imgs.append(tf.cast(tf.image.resize(img, [nh, nw]), dtype=tf.uint8))
+            # scaled_imgs.append(tf.cast(tf.image.resize(img, [nh, nw]), dtype=tf.uint8)
             scaled_imgs.append(tf.image.resize(img, [nh, nw]))
     return scaled_imgs
 
@@ -26,13 +26,10 @@ def spatial_normalize(disp):
     return disp/disp_mean
 
 
-@tf.function ## 이건 원래 tf.function
+# @tf.function ## 이건 원래 tf.function
 def SSIM(x, y):
     C1 = 0.01 ** 2
     C2 = 0.03 ** 2
-
-    # x = tf.cast(x, dtype=tf.float32)
-    # y = tf.cast(y, dtype=tf.float32)
 
     mu_x = tf.nn.avg_pool2d(x, 3, 1, 'SAME')
     mu_y = tf.nn.avg_pool2d(y, 3, 1, 'SAME')
@@ -45,9 +42,6 @@ def SSIM(x, y):
     SSIM_d = (mu_x ** 2 + mu_y ** 2 + C1) * (sigma_x + sigma_y + C2)
 
     SSIM = SSIM_n / SSIM_d
-
-    # x = tf.cast(x, dtype=tf.uint8)
-    # y = tf.cast(y, dtype=tf.uint8)
 
     return tf.clip_by_value((1 - SSIM) / 2, 0, 1)
 
@@ -109,13 +103,10 @@ def compute_smooth_loss(disp, img):
     disp_gradients_x = gradient_x(disp)
     disp_gradients_y = gradient_y(disp)
 
+    # img = tf.cast(img, dtype=tf.float32)
+
     image_gradients_x = gradient_x(img)
     image_gradients_y = gradient_y(img)
-
-    # disp_gradients_x = tf.cast(disp_gradients_x, dtype=tf.float32)
-    # disp_gradients_y = tf.cast(disp_gradients_y, dtype=tf.float32)
-    # image_gradients_x = tf.cast(image_gradients_x, dtype=tf.float32)
-    # image_gradients_y = tf.cast(image_gradients_y, dtype=tf.float32)
 
     weights_x = tf.math.exp(-tf.math.reduce_mean(tf.math.abs(image_gradients_x), 3, keepdims=True))
     weights_y = tf.math.exp(-tf.math.reduce_mean(tf.math.abs(image_gradients_y), 3, keepdims=True))
@@ -133,16 +124,17 @@ def losses(mode, num_scales, num_source, rigid_warp_weight, disp_smooth_weight,
     disp_smooth_loss = 0
 
     for s in range(num_scales):
-            # rigid_warp_loss
-            if mode == 'train_rigid' and rigid_warp_weight > 0:
-                rigid_warp_loss += rigid_warp_weight*num_source/2 * \
-                                (tf.reduce_mean(fwd_rigid_error_pyramid[s]) + \
-                                 tf.reduce_mean(bwd_rigid_error_pyramid[s]))
+        # rigid_warp_loss
+        if mode == 'train_rigid' and rigid_warp_weight > 0:
+            rigid_warp_loss += rigid_warp_weight*(num_source/2) * \
+                            (tf.reduce_mean(fwd_rigid_error_pyramid[s]) + \
+                             tf.reduce_mean(bwd_rigid_error_pyramid[s]))
 
-            # disp_smooth_loss
-            if mode == 'train_rigid' and disp_smooth_weight > 0:
-                disp_smooth_loss += disp_smooth_weight/(2**s) * compute_smooth_loss(pred_disp[s],
-                                tf.concat([tgt_image_pyramid[s], src_image_concat_pyramid[s]], axis=0))
+        # disp_smooth_loss
+        if mode == 'train_rigid' and disp_smooth_weight > 0:
+            disp_smooth_loss += disp_smooth_weight/(2**s) * compute_smooth_loss(pred_disp[s],
+                            tf.concat([tgt_image_pyramid[s], src_image_concat_pyramid[s]], axis=0))
+        # print("s : ", s, rigid_warp_loss, disp_smooth_loss)
 
     # regularization_loss = tf.add_n(tf.losses.get_regularization_losses())
     total_loss = 0  # regularization_loss
@@ -159,7 +151,7 @@ class GeoNet(Model):
         self.pose_net = PoseNet(opt)
         self.disp_net = DepthNet(opt)
 
-    def call(self, inputs, training=False, mask=None):
+    def call(self, inputs, training=None, mask=None):
         # Data preprocess
         tgt_image = inputs[0]
         src_image_stack = inputs[1]
@@ -186,7 +178,7 @@ class GeoNet(Model):
                 dispnet_inputs = tf.concat([dispnet_inputs, src_image_stack[:, :, :, 3 * i:3 * (i + 1)]], axis=0)
 
         # DepthNet Forward
-        pred_disp = self.disp_net(dispnet_inputs, training=True)
+        pred_disp = self.disp_net(dispnet_inputs, training=training)
 
         if self.opt['scale_normalize']:
             # As proposed in https://arxiv.org/abs/1712.00175, this can
@@ -201,10 +193,11 @@ class GeoNet(Model):
         posenet_inputs = tf.concat([tgt_image, src_image_stack], axis=3)
 
         # build posenet
-        pred_poses = self.pose_net(posenet_inputs, training=True)
+        pred_poses = self.pose_net(posenet_inputs, training=training)
 
         # print("111 : ", pred_poses) # (4, 2, 6)
-        fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid = build_rigid_flow_warping(self.opt['batch_size'],
+        fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid = build_rigid_flow_warping\
+                                                                                    (self.opt['batch_size'],
                                                                                     self.opt['num_scales'],
                                                                                     self.opt['num_source'],
                                                                                     self.opt['alpha_recon_image'],
@@ -214,4 +207,4 @@ class GeoNet(Model):
                                                                                     intrinsics,
                                                                                     pred_poses)
 
-        return [tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, pred_poses, pred_disp, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid]
+        return [tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, pred_poses, pred_depth, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid]

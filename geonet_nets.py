@@ -63,7 +63,6 @@ class PoseNet(Model):
         self.pose_pred = layers.Conv2D(6 * self.opt['num_source'], (1, 1), (1, 1), padding=padding, kernel_regularizer=kernel_regularizer)
 
     def call(self, inputs, training=None, mask=None):
-        # inputs = tf.cast(inputs, dtype=tf.float32)  ####################################################################
         x = self.conv1(inputs)
         x = self.bn1(x, training=training)
         x = self.conv2(x)
@@ -140,11 +139,11 @@ class ResConv(layers.Layer):
     def call(self, x, training=None, mask=None):
         do_proj = tf.shape(x)[3] != self.num_layers or self.stride == 2
         shortcut = []
-        conv1 = self.conv1(x)
-        conv2 = self.conv2(conv1)
-        conv3 = self.conv3(conv2)
+        conv1 = self.conv1(x, training=training)
+        conv2 = self.conv2(conv1, training=training)
+        conv3 = self.conv3(conv2, training=training)
         if do_proj:
-            shortcut = self.conv_shortcut(x)
+            shortcut = self.conv_shortcut(x, training=training)
         else:
             shortcut = x
         return tf.nn.relu(conv3 + shortcut)
@@ -164,8 +163,8 @@ class ResBlock(layers.Layer):
 
     def call(self, x, training=None, mask=None):
         for i in range(self.num_blocks - 1):
-            x = self.resconv1[i](x)
-        x = self.resconv2(x)
+            x = self.resconv1[i](x, training=training)
+        x = self.resconv2(x, training=training)
         return x
 
 
@@ -189,7 +188,7 @@ class UpConv(layers.Layer):
 
     def call(self, x, training=None, mask=None):
         x = upsample_nn(x, self.scale)
-        x = self.conv(x)
+        x = self.conv(x, training=training)
         return x
 
 
@@ -212,7 +211,7 @@ class GetDispResnet50(layers.Layer):
         self.conv = Conv(1, 3, 1, activation=tf.nn.sigmoid, batch_normalize=False)
 
     def call(self, x, training=None, mask=None):
-        return self.DISP_SCALING_RESNET50 * self.conv(x) + 0.01
+        return self.DISP_SCALING_RESNET50 * self.conv(x, training=training) + 0.01
 
 
 class DepthNet(Model):
@@ -251,13 +250,12 @@ class DepthNet(Model):
         self.get_disp_resnet50_1 = GetDispResnet50()
 
     def call(self, inputs, training=None, mask=None):
-        # inputs = tf.cast(inputs, dtype=tf.float32) #####################################################################
-        conv1 = self.conv(inputs)
+        conv1 = self.conv(inputs, training=training)
         pool1 = self.maxpool(conv1)
-        conv2 = self.resblock1(pool1)
-        conv3 = self.resblock2(conv2)
-        conv4 = self.resblock3(conv3)
-        conv5 = self.resblock4(conv4)
+        conv2 = self.resblock1(pool1, training=training)
+        conv3 = self.resblock2(conv2, training=training)
+        conv4 = self.resblock3(conv3, training=training)
+        conv5 = self.resblock4(conv4, training=training)
 
         skip1 = conv1 # 64, 208
         skip2 = pool1 # 22 70
@@ -266,39 +264,39 @@ class DepthNet(Model):
         skip5 = conv4 # 3 9
 
         # Decoding
-        upconv6 = self.upconv6(conv5)
+        upconv6 = self.upconv6(conv5, training=training)
         upconv6 = resize_like(upconv6, skip5)
         concat6 = tf.concat([upconv6, skip5], 3)
-        iconv6 = self.conv6(concat6)
+        iconv6 = self.conv6(concat6, training=training)
 
-        upconv5 = self.upconv5(iconv6)
+        upconv5 = self.upconv5(iconv6, training=training)
         upconv5 = resize_like(upconv5, skip4)
         concat5 = tf.concat([upconv5, skip4], 3)
-        iconv5 = self.conv5(concat5)
+        iconv5 = self.conv5(concat5, training=training)
 
-        upconv4 = self.upconv4(iconv5)
+        upconv4 = self.upconv4(iconv5, training=training)
         upconv4 = resize_like(upconv4, skip3)
         concat4 = tf.concat([upconv4, skip3], 3) # [12,12,36,128] vs. shape[1] = [12,11,35,256]
-        iconv4 = self.conv4(concat4)
-        pred4 = self.get_disp_resnet50_4(iconv4)
+        iconv4 = self.conv4(concat4, training=training)
+        pred4 = self.get_disp_resnet50_4(iconv4, training=training)
         upred4 = upsample_nn(pred4, 2)
 
-        upconv3 = self.upconv3(iconv4)
+        upconv3 = self.upconv3(iconv4, training=training)
         concat3 = tf.concat([upconv3, skip2, upred4], 3)
-        iconv3 = self.conv3(concat3)
-        pred3 = self.get_disp_resnet50_3(iconv3)
+        iconv3 = self.conv3(concat3, training=training)
+        pred3 = self.get_disp_resnet50_3(iconv3, training=training)
         upred3 = upsample_nn(pred3, 2)
 
-        upconv2 = self.upconv2(iconv3)
+        upconv2 = self.upconv2(iconv3, training=training)
         concat2 = tf.concat([upconv2, skip1, upred3], 3)
-        iconv2 = self.conv2(concat2)
-        pred2 = self.get_disp_resnet50_2(iconv2)
+        iconv2 = self.conv2(concat2, training=training)
+        pred2 = self.get_disp_resnet50_2(iconv2, training=training)
         upred2 = upsample_nn(pred2, 2)
 
-        upconv1 = self.upconv1(iconv2)
+        upconv1 = self.upconv1(iconv2, training=training)
         concat1 = tf.concat([upconv1, upred2], 3)
-        iconv1 = self.conv1(concat1)
-        pred1 = self.get_disp_resnet50_1(iconv1)
+        iconv1 = self.conv1(concat1, training=training)
+        pred1 = self.get_disp_resnet50_1(iconv1, training=training)
 
         return [pred1, pred2, pred3, pred4]
 

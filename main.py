@@ -58,12 +58,12 @@ def train(opt):
         for step in range(opt['max_steps']):
             with tf.GradientTape() as tape:
                 src_image_stack, tgt_image, intrinsics = data_loader.load_train_batch()
-                tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, pred_poses, pred_disp, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid = geonet(
+                tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, pred_poses, pred_depth, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid = geonet(
                     [tgt_image, src_image_stack, intrinsics], training=True)
                 loss = losses(opt['mode'], opt['num_scales'], opt['num_source'], opt['rigid_warp_weight'],
                               opt['disp_smooth_weight'],
                               tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid,
-                              pred_disp)
+                              pred_depth)
                 gradients = tape.gradient(loss, geonet.trainable_variables)
                 adm_optimizer.apply_gradients(zip(gradients, geonet.trainable_variables))
                 if (step % 100 == 0):
@@ -78,7 +78,7 @@ def train(opt):
                     tf.summary.image('src_image', src_image_concat_pyramid[0]/255.0, step=step)
 
                     # pred_disp
-                    tf.summary.image('pred_disp', pred_disp[0], step=step)
+                    tf.summary.image('pred_depth', pred_depth[0], step=step)
 
                     # pred_flow
                     color_fwd_flow = fl.flow_to_image(fwd_rigid_flow_pyramid[0][0,:,:,:].numpy())
