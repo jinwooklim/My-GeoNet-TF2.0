@@ -58,7 +58,7 @@ def train(opt):
         for step in range(opt['max_steps']):
             with tf.GradientTape() as tape:
                 src_image_stack, tgt_image, intrinsics = data_loader.load_train_batch()
-                tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, pred_poses, pred_disp, pred_depth, fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid = geonet(
+                tgt_image_pyramid, src_image_concat_pyramid, pred_disp, pred_depth, pred_poses, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid = geonet(
                     [tgt_image, src_image_stack, intrinsics], training=True)
                 loss = losses(opt['mode'], opt['num_scales'], opt['num_source'], opt['rigid_warp_weight'],
                               opt['disp_smooth_weight'],
