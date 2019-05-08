@@ -5,5 +5,4 @@ checkpoint/*
 summary/*
 __pycache__/
 *.pyc
-
 *.avi

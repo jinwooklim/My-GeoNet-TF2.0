@@ -4,6 +4,10 @@ import time
 import pprint
 from data_loader import DataLoader
 from geonet_model import *
+import cv2
+import sys
+sys.path.insert(0, './kitti_eval/flow_tool/')
+import flowlib as fl
 
 opt = {'mode': "train_rigid",
        'dataset_dir': "E:\\all_dataset\\KITTI_dump",
@@ -67,14 +71,27 @@ def train(opt):
                     time_per_iter = (time.time() - start_time) / 100
                     start_time = time.time()
                     print('Iteration: [%7d] | Time: %4.4fs/iter | Loss: %.3f'% (step, time_per_iter, loss))
+                    # loss
                     tf.summary.scalar('loss', loss, step=step)
+
+                    # input images
                     tf.summary.image('tgt_image', tgt_image_pyramid[0]/255.0, step=step)
                     tf.summary.image('src_image', src_image_concat_pyramid[0]/255.0, step=step)
-                    tf.summary.image('pred_disp', pred_disp[0]/255.0, step=step)
-                    # tf.summary.image('fwd_flow', fwd_rigid_flow_pyramid[0], step=step)
-                    # tf.summary.image('bwd_flow', bwd_rigid_flow_pyramid[0], step=step)
 
-                # if (step % opt['save_ckpt_freq'] == 0) and step > 0:
+                    # pred_disp
+                    tf.summary.image('pred_disp', pred_disp[0], step=step)
+
+                    # pred_flow
+                    color_fwd_flow = fl.flow_to_image(fwd_rigid_flow_pyramid[0][0,:,:,:].numpy())
+                    color_fwd_flow = cv2.cvtColor(color_fwd_flow, cv2.COLOR_RGB2BGR)
+                    color_fwd_flow = tf.expand_dims(color_fwd_flow, axis=0)
+                    tf.summary.image('color_fwd_flow', color_fwd_flow, step=step)
+                    color_bwd_flow = fl.flow_to_image(bwd_rigid_flow_pyramid[0][0,:,:,:].numpy())
+                    color_bwd_flow = cv2.cvtColor(color_bwd_flow, cv2.COLOR_RGB2BGR)
+                    color_bwd_flow = tf.expand_dims(color_bwd_flow, axis=0)
+                    tf.summary.image('color_bwd_flow', color_bwd_flow, step=step)
+
+                    # if (step % opt['save_ckpt_freq'] == 0) and step > 0:
                 if(step % opt['save_ckpt_freq'] == 0):
                     save_path = ckpt_manager.save()
                     print("Saved checkpoint for step {}: {}".format(step, save_path))
