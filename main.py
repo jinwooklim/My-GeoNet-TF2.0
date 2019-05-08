@@ -70,7 +70,7 @@ def train(opt):
                     tf.summary.scalar('loss', loss, step=step)
                     tf.summary.image('tgt_image', tgt_image_pyramid[0]/255.0, step=step)
                     tf.summary.image('src_image', src_image_concat_pyramid[0]/255.0, step=step)
-                    tf.summary.image('pred_disp', pred_disp[0], step=step)
+                    tf.summary.image('pred_disp', pred_disp[0]/255.0, step=step)
                     # tf.summary.image('fwd_flow', fwd_rigid_flow_pyramid[0], step=step)
                     # tf.summary.image('bwd_flow', bwd_rigid_flow_pyramid[0], step=step)
 
