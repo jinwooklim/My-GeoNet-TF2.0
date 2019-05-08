@@ -59,9 +59,11 @@ class DataLoader(object):
             self.dataset = self.dataset.map(_parse_function_with_obd)
         else:
             self.dataset = tf.data.Dataset.from_tensor_slices((img_filenames, cam_filenames))
-            self.dataset = self.dataset.map(_parse_function)
+            self.dataset = self.dataset.map(_parse_function, num_parallel_calls=opt['num_map_threads'])
+        self.dataset = self.dataset.repeat(opt['max_epoch'])
         self.dataset = self.dataset.batch(opt['batch_size'])
-        self.dataset = self.dataset.shuffle(buffer_size=opt['buffer_size'])
+        self.dataset = self.dataset.shuffle(buffer_size=opt['shuffle_buffer_size'])
+        self.iter = iter(self.dataset)
 
     def load_train_batch(self):
         """Load a batch of training instances.
@@ -72,7 +74,8 @@ class DataLoader(object):
 
         opt = self.opt
         if opt['useobd']:
-            src_image_stack, tgt_image, intrinsics, obd_warped_image_stack = next(iter(self.dataset))
+            # src_image_stack, tgt_image, intrinsics, obd_warped_image_stack = next(iter(self.dataset))
+            src_image_stack, tgt_image, intrinsics, obd_warped_image_stack = next(self.iter)
 
             # Data Augmentation
             image_all = tf.concat([tgt_image, src_image_stack], axis=3)
@@ -83,9 +86,10 @@ class DataLoader(object):
 
             return src_image_stack, tgt_image, intrinsics, obd_warped_image_stack
         else:
-            src_image_stack, tgt_image, intrinsics = next(iter(self.dataset))
+            # src_image_stack, tgt_image, intrinsics = next(iter(self.dataset))
+            src_image_stack, tgt_image, intrinsics = next(self.iter)
 
-            # Data Augmentation
+            # # Data Augmentation
             image_all = tf.concat([tgt_image, src_image_stack], axis=3)
             image_all, intrinsics = self.data_augmentation(image_all, intrinsics, opt['img_height'], opt['img_width'])
             tgt_image = image_all[:, :, :, :3]
