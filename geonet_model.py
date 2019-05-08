@@ -2,7 +2,7 @@ from geonet_nets import *
 from utils import *
 import tensorflow as tf
 
-# @tf.function
+@tf.function
 def scale_pyramid(img, num_scales):
     if img == None:
         return None
@@ -18,7 +18,7 @@ def scale_pyramid(img, num_scales):
     return scaled_imgs
 
 
-# @tf.function
+@tf.function
 def spatial_normalize(disp):
     _, curr_h, curr_w, curr_c = disp.get_shape().as_list()
     disp_mean = tf.reduce_mean(disp, axis=[1,2,3], keep_dims=True)
@@ -52,14 +52,14 @@ def SSIM(x, y):
     return tf.clip_by_value((1 - SSIM) / 2, 0, 1)
 
 
-# @tf.function
+@tf.function
 def image_similarity(alpha_recon_image, x, y):
     # x = tf.cast(x, dtype=tf.float32)
     # y = tf.cast(y, dtype=tf.float32)
     return alpha_recon_image * SSIM(x, y) + (1.0 - alpha_recon_image) * tf.math.abs(x-y)
 
 
-# @tf.function
+@tf.function
 def build_rigid_flow_warping(bs, num_scales, num_source, alpha_recon_image, src_image_concat_pyramid, tgt_image_tile_pyramid, pred_depth, intrinsics, pred_poses):
     # build rigid flow (fwd: tgt->src, bwd: src->tgt)
     fwd_rigid_flow_pyramid = []
@@ -89,22 +89,22 @@ def build_rigid_flow_warping(bs, num_scales, num_source, alpha_recon_image, src_
     fwd_rigid_error_pyramid = [image_similarity(alpha_recon_image, fwd_rigid_warp_pyramid[s], tgt_image_tile_pyramid[s]) for s in range(num_scales)]
     bwd_rigid_error_pyramid = [image_similarity(alpha_recon_image, bwd_rigid_warp_pyramid[s], src_image_concat_pyramid[s]) for s in range(num_scales)]
 
-    return fwd_rigid_error_pyramid, bwd_rigid_error_pyramid
+    return fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid
 
 
-# @tf.function
+@tf.function
 def gradient_x(img):
     gx = img[:,:,:-1,:] - img[:,:,1:,:]
     return gx
 
 
-# @tf.function
+@tf.function
 def gradient_y(img):
     gy = img[:,:-1,:,:] - img[:,1:,:,:]
     return gy
 
 
-# @tf.function
+@tf.function
 def compute_smooth_loss(disp, img):
     disp_gradients_x = gradient_x(disp)
     disp_gradients_y = gradient_y(disp)
@@ -126,7 +126,7 @@ def compute_smooth_loss(disp, img):
     return tf.reduce_mean(tf.abs(smoothness_x)) + tf.reduce_mean(tf.abs(smoothness_y))
 
 
-# @tf.function
+@tf.function
 def losses(mode, num_scales, num_source, rigid_warp_weight, disp_smooth_weight,
            tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, pred_disp):
     rigid_warp_loss = 0
@@ -204,7 +204,7 @@ class GeoNet(Model):
         pred_poses = self.pose_net(posenet_inputs, training=True)
 
         # print("111 : ", pred_poses) # (4, 2, 6)
-        fwd_rigid_error_pyramid, bwd_rigid_error_pyramid = build_rigid_flow_warping(self.opt['batch_size'],
+        fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid = build_rigid_flow_warping(self.opt['batch_size'],
                                                                                     self.opt['num_scales'],
                                                                                     self.opt['num_source'],
                                                                                     self.opt['alpha_recon_image'],
@@ -214,4 +214,4 @@ class GeoNet(Model):
                                                                                     intrinsics,
                                                                                     pred_poses)
 
-        return [tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, pred_poses, pred_disp]
+        return [tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, pred_poses, pred_disp, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid]

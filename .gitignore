@@ -2,6 +2,7 @@
 models/*
 predictions/*
 checkpoint/*
+summary/*
 __pycache__/
 *.pyc
 

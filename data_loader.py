@@ -60,9 +60,10 @@ class DataLoader(object):
         else:
             self.dataset = tf.data.Dataset.from_tensor_slices((img_filenames, cam_filenames))
             self.dataset = self.dataset.map(_parse_function, num_parallel_calls=opt['num_map_threads'])
-        self.dataset = self.dataset.repeat(opt['max_epoch'])
-        self.dataset = self.dataset.batch(opt['batch_size'])
         self.dataset = self.dataset.shuffle(buffer_size=opt['shuffle_buffer_size'])
+        self.dataset = self.dataset.repeat(opt['max_epoch'])
+        self.dataset = self.dataset.prefetch(buffer_size=opt['prefetch_buffer_size'])
+        self.dataset = self.dataset.batch(opt['batch_size'])
         self.iter = iter(self.dataset)
 
     def load_train_batch(self):
