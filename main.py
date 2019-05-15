@@ -26,8 +26,8 @@ parser.add_argument('--num_scales', type=int, default=4, help='num_scales')
 
 parser.add_argument('--checkpoint_dir', type=str, default='./checkpoint/', help='Checkpoint dir')
 parser.add_argument('--ckpt_file', type=str, default='', help='Ckpt name')
-parser.add_argument('--save_ckpt_freq', type=int, default=5000)
-parser.add_argument('--max_to_keep', type=int, default=5)
+parser.add_argument('--save_ckpt_freq', type=int, default=10000)
+parser.add_argument('--max_to_keep', type=int, default=3)
 parser.add_argument('--summary_dir', type=str, default='./summary/', help='summary_dir')
 parser.add_argument('--save_summary_freq', type=int, default=1000)
 
@@ -72,17 +72,17 @@ def normalize_depth_for_display(depth, pc=95, crop_percent=0, normalizer=None,
     return disp
 
 
-@tf.function
-def train_step(geonet, src_image_stack, tgt_image, intrinsics):
-    with tf.GradientTape() as tape:
-        tgt_image_pyramid, src_image_concat_pyramid, pred_disp, pred_depth, pred_poses, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid = geonet(
-            [tgt_image, src_image_stack, intrinsics], training=True)
-        loss = losses(FLAGS.mode, FLAGS.num_scales, FLAGS.num_source, FLAGS.rigid_warp_weight,
-                      FLAGS.disp_smooth_weight,
-                      tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid,
-                      pred_disp)
-        gradients = tape.gradient(loss, geonet.trainable_variables)
-    return gradients, loss, tgt_image_pyramid, src_image_concat_pyramid, pred_disp, pred_depth, pred_poses, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid
+# @tf.function
+# def train_step(geonet, src_image_stack, tgt_image, intrinsics):
+#     with tf.GradientTape() as tape:
+#         tgt_image_pyramid, src_image_concat_pyramid, pred_disp, pred_depth, pred_poses, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid = geonet(
+#             [tgt_image, src_image_stack, intrinsics], training=True)
+#         loss = losses(FLAGS.mode, FLAGS.num_scales, FLAGS.num_source, FLAGS.rigid_warp_weight,
+#                       FLAGS.disp_smooth_weight,
+#                       tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid,
+#                       pred_disp)
+#         gradients = tape.gradient(loss, geonet.trainable_variables)
+#     return gradients, loss, tgt_image_pyramid, src_image_concat_pyramid, pred_disp, pred_depth, pred_poses, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid
 
 
 def train(FLAGS):
@@ -104,6 +104,18 @@ def train(FLAGS):
     ckpt_manager = tf.train.CheckpointManager(ckpt, FLAGS.checkpoint_dir, max_to_keep=FLAGS.max_to_keep)
     summary_writer = tf.summary.create_file_writer(FLAGS.summary_dir)
 
+    @tf.function
+    def train_step(src_image_stack, tgt_image, intrinsics):
+        with tf.GradientTape() as tape:
+            tgt_image_pyramid, src_image_concat_pyramid, pred_disp, pred_depth, pred_poses, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid = geonet(
+                [tgt_image, src_image_stack, intrinsics], training=True)
+            loss = losses(FLAGS.mode, FLAGS.num_scales, FLAGS.num_source, FLAGS.rigid_warp_weight,
+                          FLAGS.disp_smooth_weight,
+                          tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid,
+                          pred_disp)
+            gradients = tape.gradient(loss, geonet.trainable_variables)
+        return gradients, loss, tgt_image_pyramid, src_image_concat_pyramid, pred_disp, pred_depth, pred_poses, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid
+
     with summary_writer.as_default():
         start_time = time.time()
         for step in range(FLAGS.max_steps):
@@ -116,7 +128,7 @@ def train(FLAGS):
             #               tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid,
             #               pred_disp)
             # gradients = tape.gradient(loss, geonet.trainable_variables)
-            gradients, loss, tgt_image_pyramid, src_image_concat_pyramid, pred_disp, pred_depth, pred_poses, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid = train_step(geonet, src_image_stack, tgt_image, intrinsics)
+            gradients, loss, tgt_image_pyramid, src_image_concat_pyramid, pred_disp, pred_depth, pred_poses, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid = train_step(src_image_stack, tgt_image, intrinsics)
             adm_optimizer.apply_gradients(zip(gradients, geonet.trainable_variables))
 
         if (step % 100 == 0):
