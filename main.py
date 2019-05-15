@@ -29,10 +29,10 @@ parser.add_argument('--ckpt_file', type=str, default='', help='Ckpt name')
 parser.add_argument('--save_ckpt_freq', type=int, default=10000)
 parser.add_argument('--max_to_keep', type=int, default=3)
 parser.add_argument('--summary_dir', type=str, default='./summary/', help='summary_dir')
-parser.add_argument('--save_summary_freq', type=int, default=1000)
+parser.add_argument('--save_summary_freq', type=int, default=300)
 
 parser.add_argument('--learning_rate', type=float, default=0.0002)
-parser.add_argument('--max_steps', type=int, default=600000)
+parser.add_argument('--max_steps', type=int, default=300000)
 parser.add_argument('--alpha_recon_image', type=float, default=0.85)
 parser.add_argument('--rigid_warp_weight', type=float, default=1.0)
 parser.add_argument('--disp_smooth_weight', type=float, default=0.5)
@@ -104,78 +104,78 @@ def train(FLAGS):
     ckpt_manager = tf.train.CheckpointManager(ckpt, FLAGS.checkpoint_dir, max_to_keep=FLAGS.max_to_keep)
     summary_writer = tf.summary.create_file_writer(FLAGS.summary_dir)
 
-    @tf.function
-    def train_step(src_image_stack, tgt_image, intrinsics):
-        with tf.GradientTape() as tape:
-            tgt_image_pyramid, src_image_concat_pyramid, pred_disp, pred_depth, pred_poses, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid = geonet(
-                [tgt_image, src_image_stack, intrinsics], training=True)
-            loss = losses(FLAGS.mode, FLAGS.num_scales, FLAGS.num_source, FLAGS.rigid_warp_weight,
-                          FLAGS.disp_smooth_weight,
-                          tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid,
-                          pred_disp)
-            gradients = tape.gradient(loss, geonet.trainable_variables)
-        return gradients, loss, tgt_image_pyramid, src_image_concat_pyramid, pred_disp, pred_depth, pred_poses, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid
+    # @tf.function
+    # def train_step(src_image_stack, tgt_image, intrinsics):
+    #     with tf.GradientTape() as tape:
+    #         tgt_image_pyramid, src_image_concat_pyramid, pred_disp, pred_depth, pred_poses, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid = geonet(
+    #             [tgt_image, src_image_stack, intrinsics], training=True)
+    #         loss = losses(FLAGS.mode, FLAGS.num_scales, FLAGS.num_source, FLAGS.rigid_warp_weight,
+    #                       FLAGS.disp_smooth_weight,
+    #                       tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid,
+    #                       pred_disp)
+    #         gradients = tape.gradient(loss, geonet.trainable_variables)
+    #     return gradients, loss, tgt_image_pyramid, src_image_concat_pyramid, pred_disp, pred_depth, pred_poses, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid
 
     with summary_writer.as_default():
         start_time = time.time()
         for step in range(FLAGS.max_steps):
-            # with tf.GradientTape() as tape:
-            src_image_stack, tgt_image, intrinsics = next(data_loader.iter)
-            # tgt_image_pyramid, src_image_concat_pyramid, pred_disp, pred_depth, pred_poses, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid = geonet(
-            #     [tgt_image, src_image_stack, intrinsics], training=True)
-            # loss = losses(FLAGS.mode, FLAGS.num_scales, FLAGS.num_source, FLAGS.rigid_warp_weight,
-            #               FLAGS.disp_smooth_weight,
-            #               tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid,
-            #               pred_disp)
-            # gradients = tape.gradient(loss, geonet.trainable_variables)
-            gradients, loss, tgt_image_pyramid, src_image_concat_pyramid, pred_disp, pred_depth, pred_poses, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid = train_step(src_image_stack, tgt_image, intrinsics)
-            adm_optimizer.apply_gradients(zip(gradients, geonet.trainable_variables))
+            with tf.GradientTape() as tape:
+                src_image_stack, tgt_image, intrinsics = next(data_loader.iter)
+                tgt_image_pyramid, src_image_concat_pyramid, pred_disp, pred_depth, pred_poses, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid = geonet(
+                    [tgt_image, src_image_stack, intrinsics], training=True)
+                loss = losses(FLAGS.mode, FLAGS.num_scales, FLAGS.num_source, FLAGS.rigid_warp_weight,
+                              FLAGS.disp_smooth_weight,
+                              tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid,
+                              pred_disp)
+                gradients = tape.gradient(loss, geonet.trainable_variables)
+                # gradients, loss, tgt_image_pyramid, src_image_concat_pyramid, pred_disp, pred_depth, pred_poses, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid = train_step(src_image_stack, tgt_image, intrinsics)
+                adm_optimizer.apply_gradients(zip(gradients, geonet.trainable_variables))
 
-        if (step % 100 == 0):
-            time_per_iter = (time.time() - start_time) / 100
-            start_time = time.time()
-            print('Iteration: [%7d] | Time: %4.4fs/iter | Loss: %.3f'% (step, time_per_iter, loss))
+            if (step % 100 == 0):
+                time_per_iter = (time.time() - start_time) / 100
+                start_time = time.time()
+                print('Iteration: [%7d] | Time: %4.4fs/iter | Loss: %.3f'% (step, time_per_iter, loss))
 
-        if (step % FLAGS.save_summary_freq == 0):
-            # Summary
-            # loss
-            tf.summary.scalar('loss', loss, step=step)
+            if (step % FLAGS.save_summary_freq == 0):
+                # Summary
+                # loss
+                tf.summary.scalar('loss', loss, step=step)
 
-            # input images
-            tf.summary.image('tgt_image', tgt_image_pyramid[0]/255.0, step=step) # [4, 128, 416, 3]
-            tf.summary.image('src_image', src_image_concat_pyramid[0]/255.0, step=step) # [8, 128, 416, 3]
+                # input images
+                tf.summary.image('tgt_image', tgt_image_pyramid[0]/255.0, step=step) # [4, 128, 416, 3]
+                tf.summary.image('src_image', src_image_concat_pyramid[0]/255.0, step=step) # [8, 128, 416, 3]
 
-            # pred_depth # [12, 128, 416, 1] x num_scales=3
-            norm_pred_depth = normalize_depth_for_display(pred_depth[0].numpy())
-            tf.summary.image('norm_pred_depth', norm_pred_depth, step=step)
+                # pred_depth # [12, 128, 416, 1] x num_scales=3
+                norm_pred_depth = normalize_depth_for_display(pred_depth[0].numpy())
+                tf.summary.image('norm_pred_depth', norm_pred_depth, step=step)
 
-            # rigid_ward
-            tf.summary.image('fwd_rigid_warp_img', fwd_rigid_warp_pyramid[0]/255.0, step=step)  # [8, 128, 416, 3]
-            tf.summary.image('bwd_rigid_warp_img', bwd_rigid_warp_pyramid[0]/255.0, step=step) # [8, 128, 416, 3]
+                # rigid_ward
+                tf.summary.image('fwd_rigid_warp_img', fwd_rigid_warp_pyramid[0]/255.0, step=step)  # [8, 128, 416, 3]
+                tf.summary.image('bwd_rigid_warp_img', bwd_rigid_warp_pyramid[0]/255.0, step=step) # [8, 128, 416, 3]
 
-            # pred_flow
-            color_fwd_flow_list = []
-            color_bwd_flow_list = []
-            for i in range(FLAGS.batch_size):
-                color_fwd_flow = fl.flow_to_image(fwd_rigid_flow_pyramid[0][i,:,:,:].numpy()) # [8, 128, 416, 2]
-                color_fwd_flow = cv2.cvtColor(color_fwd_flow, cv2.COLOR_RGB2BGR)
-                # color_fwd_flow = tf.expand_dims(color_fwd_flow, axis=0)
-                color_fwd_flow_list.append(color_fwd_flow)
-                color_bwd_flow = fl.flow_to_image(bwd_rigid_flow_pyramid[0][i,:,:,:].numpy()) # [8, 128, 416, 2]
-                color_bwd_flow = cv2.cvtColor(color_bwd_flow, cv2.COLOR_RGB2BGR)
-                # color_bwd_flow = tf.expand_dims(color_bwd_flow, axis=0)
-                color_bwd_flow_list.append(color_bwd_flow)
-            color_fwd_flow = np.array(color_fwd_flow_list)
-            # color_fwd_flow = tf.squeeze(color_fwd_flow)
-            color_bwd_flow = np.array(color_bwd_flow_list)
-            # color_bwd_flow = tf.squeeze(color_bwd_flow)
-            tf.summary.image('color_fwd_flow', color_fwd_flow, step=step)
-            tf.summary.image('color_bwd_flow', color_bwd_flow, step=step)
+                # pred_flow
+                color_fwd_flow_list = []
+                color_bwd_flow_list = []
+                for i in range(FLAGS.batch_size):
+                    color_fwd_flow = fl.flow_to_image(fwd_rigid_flow_pyramid[0][i,:,:,:].numpy()) # [8, 128, 416, 2]
+                    color_fwd_flow = cv2.cvtColor(color_fwd_flow, cv2.COLOR_RGB2BGR)
+                    # color_fwd_flow = tf.expand_dims(color_fwd_flow, axis=0)
+                    color_fwd_flow_list.append(color_fwd_flow)
+                    color_bwd_flow = fl.flow_to_image(bwd_rigid_flow_pyramid[0][i,:,:,:].numpy()) # [8, 128, 416, 2]
+                    color_bwd_flow = cv2.cvtColor(color_bwd_flow, cv2.COLOR_RGB2BGR)
+                    # color_bwd_flow = tf.expand_dims(color_bwd_flow, axis=0)
+                    color_bwd_flow_list.append(color_bwd_flow)
+                color_fwd_flow = np.array(color_fwd_flow_list)
+                # color_fwd_flow = tf.squeeze(color_fwd_flow)
+                color_bwd_flow = np.array(color_bwd_flow_list)
+                # color_bwd_flow = tf.squeeze(color_bwd_flow)
+                tf.summary.image('color_fwd_flow', color_fwd_flow, step=step)
+                tf.summary.image('color_bwd_flow', color_bwd_flow, step=step)
 
-        # if (step % opt['save_ckpt_freq'] == 0) and step > 0:
-        if(step % FLAGS.save_ckpt_freq == 0):
-            save_path = ckpt_manager.save()
-            print("Saved checkpoint for step {}: {}".format(step, save_path))
+            # if (step % opt['save_ckpt_freq'] == 0) and step > 0:
+            if(step % FLAGS.save_ckpt_freq == 0):
+                save_path = ckpt_manager.save()
+                print("Saved checkpoint for step {}: {}".format(step, save_path))
 
 
 if __name__ == "__main__":
