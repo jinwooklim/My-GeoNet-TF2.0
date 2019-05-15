@@ -16,6 +16,7 @@ import flowlib as fl
 parser = argparse.ArgumentParser()
 parser.add_argument('--mode', type=str, default='train_rigid', help='Mode of program')
 parser.add_argument('--dataset_dir', type=str, default='E:\\all_dataset\\KITTI_dump', help='Path of dataset')
+parser.add_argument('--shuffle_buffer_size', type=int, default=128, help='shuffle_buffer_size size')
 parser.add_argument('--batch_size', type=int, default=4, help='Batch size')
 parser.add_argument('--img_height', type=int, default=128, help='img_height')
 parser.add_argument('--img_width', type=int, default=416, help='img_width')

@@ -48,7 +48,7 @@ class DataLoader(object):
 
         self.dataset = tf.data.Dataset.from_tensor_slices((img_filenames, cam_filenames))
         self.dataset = self.dataset.map(_parse_function, num_parallel_calls=tf.data.experimental.AUTOTUNE)
-        self.dataset = self.dataset.shuffle(buffer_size=1024)
+        self.dataset = self.dataset.shuffle(buffer_size=self.FLAGS.shuffle_buffer_size)
         self.dataset = self.dataset.repeat()
         self.dataset = self.dataset.batch(self.FLAGS.batch_size)
         self.dataset = self.dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
