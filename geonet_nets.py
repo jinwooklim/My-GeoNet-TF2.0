@@ -168,22 +168,6 @@ class ResBlock(layers.Layer):
         return x
 
 
-# #NO tf.function
-# def upsample_nn(x, ratio):
-#     h = x.get_shape()[1]
-#     w = x.get_shape()[2]
-#     return tf.image.resize(x, [h * ratio, w * ratio], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
-#
-#
-# #No @tf.function
-# def resize_like(inputs, ref):
-#     iH, iW = inputs.get_shape()[1], inputs.get_shape()[2]
-#     rH, rW = ref.get_shape()[1], ref.get_shape()[2]
-#     if iH == rH and iW == rW:
-#         return inputs
-#     return tf.image.resize(inputs, [rH, rW], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
-
-
 class UpSample(layers.Layer):
     def __init__(self, ratio):
         super(UpSample, self).__init__()

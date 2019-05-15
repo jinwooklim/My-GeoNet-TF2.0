@@ -13,7 +13,6 @@ def scale_pyramid(img, num_scales):
             ratio = 2 ** (i + 1)
             nh = int(h / ratio)
             nw = int(w / ratio)
-            # scaled_imgs.append(tf.cast(tf.image.resize(img, [nh, nw]), dtype=tf.uint8)
             scaled_imgs.append(tf.image.resize(img, [nh, nw]))
     return scaled_imgs
 
@@ -48,8 +47,6 @@ def SSIM(x, y):
 
 @tf.function
 def image_similarity(alpha_recon_image, x, y):
-    # x = tf.cast(x, dtype=tf.float32)
-    # y = tf.cast(y, dtype=tf.float32)
     return alpha_recon_image * SSIM(x, y) + (1.0 - alpha_recon_image) * tf.math.abs(x-y)
 
 
@@ -103,8 +100,6 @@ def gradient_y(img):
 def compute_smooth_loss(disp, img):
     disp_gradients_x = gradient_x(disp)
     disp_gradients_y = gradient_y(disp)
-
-    # img = tf.cast(img, dtype=tf.float32)
 
     image_gradients_x = gradient_x(img)
     image_gradients_y = gradient_y(img)
