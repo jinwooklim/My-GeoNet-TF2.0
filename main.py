@@ -25,11 +25,11 @@ parser.add_argument('--num_source', type=int, default=2, help='num_source')
 parser.add_argument('--num_scales', type=int, default=4, help='num_scales')
 
 parser.add_argument('--checkpoint_dir', type=str, default='./checkpoint/', help='Checkpoint dir')
-parser.add_argument('--ckpt_file', type=str, default='', help='Ckpt name')
+parser.add_argument('--init_ckpt_file', type=str, default='ckpt-1', help='Ckpt name')
 parser.add_argument('--save_ckpt_freq', type=int, default=10000)
 parser.add_argument('--max_to_keep', type=int, default=3)
 parser.add_argument('--summary_dir', type=str, default='./summary/', help='summary_dir')
-parser.add_argument('--save_summary_freq', type=int, default=300)
+parser.add_argument('--save_summary_freq', type=int, default=500)
 
 parser.add_argument('--learning_rate', type=float, default=0.0002)
 parser.add_argument('--max_steps', type=int, default=600000)
@@ -39,9 +39,6 @@ parser.add_argument('--disp_smooth_weight', type=float, default=0.5)
 
 parser.add_argument('--output_dir', type=str, default='./predictions/')
 parser.add_argument('--pose_test_seq', type=int, default=9)
-
-parser.add_argument('--useobd', type=bool, default=False)
-
 
 # FLAGS, unknown_args = parser.parse_known_args()
 FLAGS = parser.parse_args()
@@ -157,6 +154,6 @@ if __name__ == "__main__":
 
     if FLAGS.mode == "train_rigid":
         train()
-    elif FLAGS.mdoe == "test_pose":
-        test_pose()
+    elif FLAGS.mode == "test_pose":
+        test_pose(FLAGS)
 
