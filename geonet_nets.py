@@ -25,9 +25,9 @@ class SenetLikeGuidanceLayer(layers.Layer):
 
 
 class PoseNet(Model):
-    def __init__(self, opt):
+    def __init__(self, num_source):
         super(PoseNet, self).__init__()
-        self.opt = opt
+        self.num_source = num_source
         kernel_regularizer = regularizers.l2(0.0001)
         padding = 'same'
         activation_fn = tf.nn.relu
@@ -60,7 +60,7 @@ class PoseNet(Model):
                                        activation=activation_fn)
         self.bn7 = layers.BatchNormalization()
 
-        self.pose_pred = layers.Conv2D(6 * self.opt['num_source'], (1, 1), (1, 1), padding=padding, kernel_regularizer=kernel_regularizer)
+        self.pose_pred = layers.Conv2D(6 * self.num_source, (1, 1), (1, 1), padding=padding, kernel_regularizer=kernel_regularizer)
 
     def call(self, inputs, training=None, mask=None):
         x = self.conv1(inputs)
@@ -79,7 +79,7 @@ class PoseNet(Model):
         x = self.bn7(x, training=training)
         pose_pred = self.pose_pred(x)
         pose_avg = tf.reduce_mean(pose_pred, [1, 2])
-        pose_final = 0.01 * tf.reshape(pose_avg, [-1, self.opt['num_source'], 6])
+        pose_final = 0.01 * tf.reshape(pose_avg, [-1, self.num_source, 6])
         return pose_final
 
 
@@ -168,12 +168,48 @@ class ResBlock(layers.Layer):
         return x
 
 
-# NO tf.function # @tf.function
-def upsample_nn(x, ratio):
-    h = x.get_shape()[1]
-    w = x.get_shape()[2]
-    # return tf.image.resize_with_pad(x, h * ratio, w * ratio, method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
-    return tf.image.resize(x, [h * ratio, w * ratio], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+# #NO tf.function
+# def upsample_nn(x, ratio):
+#     h = x.get_shape()[1]
+#     w = x.get_shape()[2]
+#     return tf.image.resize(x, [h * ratio, w * ratio], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+#
+#
+# #No @tf.function
+# def resize_like(inputs, ref):
+#     iH, iW = inputs.get_shape()[1], inputs.get_shape()[2]
+#     rH, rW = ref.get_shape()[1], ref.get_shape()[2]
+#     if iH == rH and iW == rW:
+#         return inputs
+#     return tf.image.resize(inputs, [rH, rW], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+
+
+class UpSample(layers.Layer):
+    def __init__(self, ratio):
+        super(UpSample, self).__init__()
+        self.ratio = ratio
+
+    def build(self, input_shape):
+        pass
+
+    def call(self, x, training=None, mask=None):
+        h = x.get_shape()[1]
+        w = x.get_shape()[2]
+        return tf.image.resize(x, [h * self.ratio, w * self.ratio], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+
+
+class ResizeLike(layers.Layer):
+    def __init__(self):
+        super(ResizeLike, self).__init__()
+
+    def build(self, input_shape):
+        pass
+
+    def call(self, x, training=None, mask=None):
+        inputs, ref = x
+        iH, iW = inputs.get_shape()[1], inputs.get_shape()[2]
+        rH, rW = ref.get_shape()[1], ref.get_shape()[2]
+        return tf.image.resize(inputs, [rH, rW], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
 
 
 class UpConv(layers.Layer):
@@ -184,22 +220,13 @@ class UpConv(layers.Layer):
         self.scale = scale
 
     def build(self, input_shape):
+        self.upsample = UpSample(self.scale)
         self.conv = Conv(self.num_out_layers, self.kernel_size, 1, padding='valid', batch_normalize=True)
 
     def call(self, x, training=None, mask=None):
-        x = upsample_nn(x, self.scale)
+        x = self.upsample(x)
         x = self.conv(x, training=training)
         return x
-
-
-@tf.function
-def resize_like(inputs, ref):
-    iH, iW = inputs.get_shape()[1], inputs.get_shape()[2]
-    rH, rW = ref.get_shape()[1], ref.get_shape()[2]
-    if iH == rH and iW == rW:
-        return inputs
-    # return tf.image.resize_with_pad(inputs, rH, rW, method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
-    return tf.image.resize(inputs, [rH, rW], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
 
 
 class GetDispResnet50(layers.Layer):
@@ -215,9 +242,8 @@ class GetDispResnet50(layers.Layer):
 
 
 class DepthNet(Model):
-    def __init__(self, opt):
+    def __init__(self):
         super(DepthNet, self).__init__()
-        self.opt = opt
         activation_fn = tf.nn.relu
 
         self.conv = Conv(64, 7, 2, padding='valid', activation=activation_fn)
@@ -228,22 +254,28 @@ class DepthNet(Model):
         self.resblock4 = ResBlock(512, 3)
 
         self.upconv6 = UpConv(512, 3, 2)
+        self.resize_like6 = ResizeLike()
         self.conv6 = Conv(512, 3, 1, padding='valid', activation=activation_fn)
 
         self.upconv5 = UpConv(256, 3, 2)
+        self.resize_like5 = ResizeLike()
         self.conv5 = Conv(256, 3, 1, padding='valid', activation=activation_fn)
 
         self.upconv4 = UpConv(128, 3, 2)
+        self.resize_like4 = ResizeLike()
         self.conv4 = Conv(128, 3, 1, padding='valid', activation=activation_fn)
         self.get_disp_resnet50_4 = GetDispResnet50()
+        self.upsample4 = UpSample(2)
 
         self.upconv3 = UpConv(64, 3, 2)
         self.conv3 = Conv(64, 3, 1, padding='valid', activation=activation_fn)
         self.get_disp_resnet50_3 = GetDispResnet50()
+        self.upsample3 = UpSample(2)
 
         self.upconv2 = UpConv(32, 3, 2)
         self.conv2 = Conv(32, 3, 1, padding='valid', activation=activation_fn)
         self.get_disp_resnet50_2 = GetDispResnet50()
+        self.upsample2 = UpSample(2)
 
         self.upconv1 = UpConv(16, 3, 2)
         self.conv1 = Conv(16, 3, 1, padding='valid', activation=activation_fn)
@@ -265,33 +297,35 @@ class DepthNet(Model):
 
         # Decoding
         upconv6 = self.upconv6(conv5, training=training)
-        upconv6 = resize_like(upconv6, skip5)
+        upconv6 = self.resize_like6([upconv6, skip5])
         concat6 = tf.concat([upconv6, skip5], 3)
         iconv6 = self.conv6(concat6, training=training)
 
         upconv5 = self.upconv5(iconv6, training=training)
-        upconv5 = resize_like(upconv5, skip4)
+        upconv5 = self.resize_like5([upconv5, skip4])
         concat5 = tf.concat([upconv5, skip4], 3)
         iconv5 = self.conv5(concat5, training=training)
 
         upconv4 = self.upconv4(iconv5, training=training)
-        upconv4 = resize_like(upconv4, skip3)
-        concat4 = tf.concat([upconv4, skip3], 3) # [12,12,36,128] vs. shape[1] = [12,11,35,256]
+        upconv4 = self.resize_like4([upconv4, skip3]) #resize_like(upconv4, skip3) # If it is a @tf_function, It makes None channel
+        # print("upconv4-re : ", upconv4)
+        concat4 = tf.concat([upconv4, skip3], 3)
+        # print("concat4 : ", concat4)
         iconv4 = self.conv4(concat4, training=training)
         pred4 = self.get_disp_resnet50_4(iconv4, training=training)
-        upred4 = upsample_nn(pred4, 2)
+        upred4 = self.upsample4(pred4)
 
         upconv3 = self.upconv3(iconv4, training=training)
         concat3 = tf.concat([upconv3, skip2, upred4], 3)
         iconv3 = self.conv3(concat3, training=training)
         pred3 = self.get_disp_resnet50_3(iconv3, training=training)
-        upred3 = upsample_nn(pred3, 2)
+        upred3 = self.upsample3(pred3)
 
         upconv2 = self.upconv2(iconv3, training=training)
         concat2 = tf.concat([upconv2, skip1, upred3], 3)
         iconv2 = self.conv2(concat2, training=training)
         pred2 = self.get_disp_resnet50_2(iconv2, training=training)
-        upred2 = upsample_nn(pred2, 2)
+        upred2 = self.upsample2(pred2)
 
         upconv1 = self.upconv1(iconv2, training=training)
         concat1 = tf.concat([upconv1, upred2], 3)

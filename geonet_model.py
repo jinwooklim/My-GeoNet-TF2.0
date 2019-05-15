@@ -54,7 +54,8 @@ def image_similarity(alpha_recon_image, x, y):
 
 
 @tf.function
-def build_rigid_flow_warping(bs, num_scales, num_source, alpha_recon_image, src_image_concat_pyramid, tgt_image_tile_pyramid, pred_depth, intrinsics, pred_poses):
+def build_rigid_flow_warping(num_scales, num_source, alpha_recon_image, src_image_concat_pyramid, tgt_image_tile_pyramid, pred_depth, intrinsics, pred_poses):
+    bs = tf.shape(intrinsics)[0] # bs : 4
     # build rigid flow (fwd: tgt->src, bwd: src->tgt)
     fwd_rigid_flow_pyramid = []
     bwd_rigid_flow_pyramid = []
@@ -144,11 +145,14 @@ def losses(mode, num_scales, num_source, rigid_warp_weight, disp_smooth_weight,
 
 
 class GeoNet(Model):
-    def __init__(self, opt):
+    def __init__(self, num_scales, num_source, alpha_recon_image):
         super(GeoNet, self).__init__()
-        self.opt = opt
-        self.pose_net = PoseNet(opt)
-        self.disp_net = DepthNet(opt)
+        self.num_scales = num_scales
+        self.num_source = num_source
+        self.alpha_recon_image = alpha_recon_image
+
+        self.pose_net = PoseNet(num_source=num_source)
+        self.disp_net = DepthNet()
 
     def call(self, inputs, training=None, mask=None):
         # Data preprocess
@@ -156,33 +160,28 @@ class GeoNet(Model):
         src_image_stack = inputs[1]
         intrinsics = inputs[2]
 
-        tgt_image_pyramid = scale_pyramid(tgt_image, self.opt['num_scales'])
-        tgt_image_tile_pyramid = [tf.tile(img, [self.opt['num_source'], 1, 1, 1]) for img in tgt_image_pyramid]
+        tgt_image_pyramid = scale_pyramid(tgt_image, self.num_scales)
+        tgt_image_tile_pyramid = [tf.tile(img, [self.num_source, 1, 1, 1]) for img in tgt_image_pyramid]
 
         # src images concated along batch dimension
         if src_image_stack != None:
             src_image_concat = tf.concat([src_image_stack[:,:,:,3*i:3*(i+1)] \
-                                    for i in range(self.opt['num_source'])], axis=0)
-            src_image_concat_pyramid = scale_pyramid(src_image_concat, self.opt['num_scales'])
+                                    for i in range(self.num_source)], axis=0)
+            src_image_concat_pyramid = scale_pyramid(src_image_concat, self.num_scales)
 
         ### DepthNet part
         # build dispnet_inputs
-        if self.opt['mode'] == 'test_depth':
+        if training == False: #self.opt['mode'] == 'test_depth':
             # for test_depth mode we only predict the depth of the target image
             dispnet_inputs = tgt_image
         else:
             # multiple depth predictions; tgt: disp[:bs,:,:,:] src.i: disp[bs*(i+1):bs*(i+2),:,:,:]
             dispnet_inputs = tgt_image
-            for i in range(self.opt['num_source']):
+            for i in range(self.num_source):
                 dispnet_inputs = tf.concat([dispnet_inputs, src_image_stack[:, :, :, 3 * i:3 * (i + 1)]], axis=0)
 
         # DepthNet Forward
         pred_disp = self.disp_net(dispnet_inputs, training=training)
-
-        if self.opt['scale_normalize']:
-            # As proposed in https://arxiv.org/abs/1712.00175, this can
-            # bring improvement in depth estimation, but not included in our paper.
-            pred_disp = [spatial_normalize(disp) for disp in pred_disp]
 
         # DepthNet result
         pred_depth = [1. / d for d in pred_disp]
@@ -195,11 +194,10 @@ class GeoNet(Model):
         pred_poses = self.pose_net(posenet_inputs, training=training)
 
         # print("111 : ", pred_poses) # (4, 2, 6)
-        fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid = build_rigid_flow_warping\
-                                                                                    (self.opt['batch_size'],
-                                                                                    self.opt['num_scales'],
-                                                                                    self.opt['num_source'],
-                                                                                    self.opt['alpha_recon_image'],
+        fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid = build_rigid_flow_warping(
+                                                                                    self.num_scales,
+                                                                                    self.num_source,
+                                                                                    self.alpha_recon_image,
                                                                                     src_image_concat_pyramid,
                                                                                     tgt_image_tile_pyramid,
                                                                                     pred_depth,
