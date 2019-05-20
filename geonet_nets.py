@@ -60,7 +60,7 @@ class PoseNet(Model):
                                        activation=activation_fn)
         self.bn7 = layers.BatchNormalization()
 
-        self.pose_pred = layers.Conv2D(6 * self.num_source, (1, 1), (1, 1), padding=padding, kernel_regularizer=kernel_regularizer)
+        self.pose_pred = layers.Conv2D(6 * self.num_source, (1, 1), (1, 1), padding=padding, kernel_regularizer=kernel_regularizer, activation=None)
 
     def call(self, inputs, training=None, mask=None):
         x = self.conv1(inputs)
