@@ -4,26 +4,6 @@ from tensorflow.python.keras import layers, Model, regularizers
 import numpy as np
 
 
-class SenetLikeGuidanceLayer(layers.Layer):
-    def __init__(self, num_outputs):
-        super(SenetLikeGuidanceLayer, self).__init__()
-        self.num_outputs = num_outputs
-
-    def build(self, input_shape):
-        self.fc1 = layers.Dense(self.num_outputs, use_bias=True, activation=tf.nn.relu)
-        self.fc2 = layers.Dense(self.num_outputs, use_bias=True, activation=tf.nn.sigmoid)
-
-    def call(self, image_feature, *scale_feature):
-        squeeze = tf.reduce_mean(scale_feature, axis=[1, 2])
-
-        excitation = self.fc1(squeeze)
-        excitation = self.fc2(excitation)
-        excitation = tf.reshape(excitation, [-1, 1, 1, self.num_outputs])
-
-        scale = image_feature * excitation  # input_x -> images_feature
-        return scale
-
-
 class PoseNet(Model):
     def __init__(self, num_source):
         super(PoseNet, self).__init__()
@@ -34,31 +14,31 @@ class PoseNet(Model):
 
         self.conv1 = layers.Conv2D(16, 7, 2, padding=padding, kernel_regularizer=kernel_regularizer,
                                        activation=activation_fn)
-        self.bn1 = layers.BatchNormalization()
+        self.bn1 = layers.BatchNormalization(scale=False)
 
         self.conv2 = layers.Conv2D(32, 5, 2, padding=padding, kernel_regularizer=kernel_regularizer,
                                        activation=activation_fn)
-        self.bn2 = layers.BatchNormalization()
+        self.bn2 = layers.BatchNormalization(scale=False)
 
         self.conv3 = layers.Conv2D(64, 3, 2, padding=padding, kernel_regularizer=kernel_regularizer,
                                        activation=activation_fn)
-        self.bn3 = layers.BatchNormalization()
+        self.bn3 = layers.BatchNormalization(scale=False)
 
         self.conv4 = layers.Conv2D(128, 3, 2, padding=padding, kernel_regularizer=kernel_regularizer,
                                        activation=activation_fn)
-        self.bn4 = layers.BatchNormalization()
+        self.bn4 = layers.BatchNormalization(scale=False)
 
         self.conv5 = layers.Conv2D(256, 3, 2, padding=padding, kernel_regularizer=kernel_regularizer,
                                        activation=activation_fn)
-        self.bn5 = layers.BatchNormalization()
+        self.bn5 = layers.BatchNormalization(scale=False)
 
         self.conv6 = layers.Conv2D(256, 3, 2, padding=padding, kernel_regularizer=kernel_regularizer,
                                        activation=activation_fn)
-        self.bn6 = layers.BatchNormalization()
+        self.bn6 = layers.BatchNormalization(scale=False)
 
         self.conv7 = layers.Conv2D(256, 3, 2, padding=padding, kernel_regularizer=kernel_regularizer,
                                        activation=activation_fn)
-        self.bn7 = layers.BatchNormalization()
+        self.bn7 = layers.BatchNormalization(scale=False)
 
         self.pose_pred = layers.Conv2D(6 * self.num_source, (1, 1), (1, 1), padding=padding, kernel_regularizer=kernel_regularizer, activation=None)
 
@@ -96,7 +76,7 @@ class Conv(layers.Layer):
     def build(self, input_shape):
         self.conv = layers.Conv2D(self.num_layers, self.kernel_size, self.stride, self.padding, activation=self.activation)
         if self.batch_normalize:
-            self.bn = layers.BatchNormalization()
+            self.bn = layers.BatchNormalization(scale=False)
 
     def call(self, x, training=None, mask=None):
         p = np.floor((self.kernel_size - 1) / 2).astype(np.int32)
@@ -122,6 +102,63 @@ class Maxpool(layers.Layer):
         p_x = tf.pad(x, [[0, 0], [p, p], [p, p], [0, 0]])
         p_x = self.maxpool(p_x)
         return p_x
+
+
+class GetDispResnet50(layers.Layer):
+    def __init__(self):
+        super(GetDispResnet50, self).__init__()
+        self.DISP_SCALING_RESNET50 = 5
+
+    def build(self, input_shape=None):
+        self.conv = Conv(1, 3, 1, activation=tf.nn.sigmoid, batch_normalize=False)
+
+    def call(self, x, training=None, mask=None):
+        return self.DISP_SCALING_RESNET50 * self.conv(x, training=training) + 0.01
+
+
+class ResizeLike(layers.Layer):
+    def __init__(self):
+        super(ResizeLike, self).__init__()
+
+    def build(self, input_shape):
+        pass
+
+    def call(self, x, training=None, mask=None):
+        inputs, ref = x
+        iH, iW = inputs.get_shape()[1], inputs.get_shape()[2]
+        rH, rW = ref.get_shape()[1], ref.get_shape()[2]
+        return tf.image.resize(inputs, [rH, rW], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+
+
+class UpSample(layers.Layer):
+    def __init__(self, ratio):
+        super(UpSample, self).__init__()
+        self.ratio = ratio
+
+    def build(self, input_shape):
+        pass
+
+    def call(self, x, training=None, mask=None):
+        h = x.get_shape()[1]
+        w = x.get_shape()[2]
+        return tf.image.resize(x, [h * self.ratio, w * self.ratio], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
+
+
+class UpConv(layers.Layer):
+    def __init__(self, num_out_layers, kernel_size, scale):
+        super(UpConv, self).__init__()
+        self.num_out_layers = num_out_layers
+        self.kernel_size = kernel_size
+        self.scale = scale
+
+    def build(self, input_shape):
+        self.upsample = UpSample(self.scale)
+        self.conv = Conv(self.num_out_layers, self.kernel_size, 1, padding='valid', batch_normalize=True)
+
+    def call(self, x, training=None, mask=None):
+        x = self.upsample(x)
+        x = self.conv(x, training=training)
+        return x
 
 
 class ResConv(layers.Layer):
@@ -166,63 +203,6 @@ class ResBlock(layers.Layer):
             x = self.resconv1[i](x, training=training)
         x = self.resconv2(x, training=training)
         return x
-
-
-class UpSample(layers.Layer):
-    def __init__(self, ratio):
-        super(UpSample, self).__init__()
-        self.ratio = ratio
-
-    def build(self, input_shape):
-        pass
-
-    def call(self, x, training=None, mask=None):
-        h = x.get_shape()[1]
-        w = x.get_shape()[2]
-        return tf.image.resize(x, [h * self.ratio, w * self.ratio], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
-
-
-class ResizeLike(layers.Layer):
-    def __init__(self):
-        super(ResizeLike, self).__init__()
-
-    def build(self, input_shape):
-        pass
-
-    def call(self, x, training=None, mask=None):
-        inputs, ref = x
-        iH, iW = inputs.get_shape()[1], inputs.get_shape()[2]
-        rH, rW = ref.get_shape()[1], ref.get_shape()[2]
-        return tf.image.resize(inputs, [rH, rW], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
-
-
-class UpConv(layers.Layer):
-    def __init__(self, num_out_layers, kernel_size, scale):
-        super(UpConv, self).__init__()
-        self.num_out_layers = num_out_layers
-        self.kernel_size = kernel_size
-        self.scale = scale
-
-    def build(self, input_shape):
-        self.upsample = UpSample(self.scale)
-        self.conv = Conv(self.num_out_layers, self.kernel_size, 1, padding='valid', batch_normalize=True)
-
-    def call(self, x, training=None, mask=None):
-        x = self.upsample(x)
-        x = self.conv(x, training=training)
-        return x
-
-
-class GetDispResnet50(layers.Layer):
-    def __init__(self):
-        super(GetDispResnet50, self).__init__()
-        self.DISP_SCALING_RESNET50 = 5
-
-    def build(self, input_shape=None):
-        self.conv = Conv(1, 3, 1, activation=tf.nn.sigmoid, batch_normalize=False)
-
-    def call(self, x, training=None, mask=None):
-        return self.DISP_SCALING_RESNET50 * self.conv(x, training=training) + 0.01
 
 
 class DepthNet(Model):
