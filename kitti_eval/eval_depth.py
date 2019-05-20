@@ -44,7 +44,7 @@ def main():
     pred_depths = np.load(args.pred_file)
     args.test_file_list = './data/kitti/test_files_%s.txt' % args.split
 
-    print 'evaluating ' + args.pred_file + '...'
+    print('evaluating ' + args.pred_file + '...')
 
     if args.split == 'eigen':
         test_files = read_text_lines(args.test_file_list)
@@ -117,6 +117,6 @@ def main():
             compute_errors(gt_depth[mask], pred_depth[mask])
 
     print("{:>10}, {:>10}, {:>10}, {:>10}, {:>10}, {:>10}, {:>10}, {:>10}".format('abs_rel', 'sq_rel', 'rms', 'log_rms', 'd1_all', 'a1', 'a2', 'a3'))
-    print("{:10.4f}, {:10.4f}, {:10.4f}, {:10.4f}, {:10.4f}, {:10.4f}, {:10.4f}, {:10.4f}".format(abs_rel.mean(), sq_rel.mean(), rms.mean(), log_rms.mean(), d1_all.mean(), a1.mean(), a2.mean(), a3.mean()))    
+    print("{:10.4f}, {:10.4f}, {:10.4f}, {:10.4f}, {:10.4f}, {:10.4f}, {:10.4f}, {:10.4f}".format(abs_rel.mean(), sq_rel.mean(), rms.mean(), log_rms.mean(), d1_all.mean(), a1.mean(), a2.mean(), a3.mean()))
 
 main()

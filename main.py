@@ -6,6 +6,7 @@ import argparse
 from data_loader import DataLoader
 from geonet_model import *
 from geonet_test_pose import *
+from geonet_test_depth import *
 import matplotlib.pyplot as plt
 import cv2
 import sys
@@ -156,4 +157,6 @@ if __name__ == "__main__":
         train()
     elif FLAGS.mode == "test_pose":
         test_pose(FLAGS)
+    elif FLAGS.mode == "test_depth":
+        test_depth(FLAGS)
 
