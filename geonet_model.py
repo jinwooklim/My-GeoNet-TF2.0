@@ -147,7 +147,7 @@ class GeoNet(Model):
         self.alpha_recon_image = alpha_recon_image
 
         self.pose_net = PoseNet(num_source=self.num_source)
-        self.disp_net = DepthNet()
+        self.disp_net = DispNet()
 
     def call(self, inputs, training=None, mask=None):
         # Data preprocess
