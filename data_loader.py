@@ -7,17 +7,17 @@ class DataLoader(object):
         self.FLAGS = FLAGS
 
         def _parse_function(img_filename, cam_filename):
-                tgt_image, src_image_stack = self.unpack_image_sequence(_img_parse_function(img_filename), self.FLAGS.img_height, self.FLAGS.img_width, self.FLAGS.num_source)
-                intrinsics = _cam_parse_function(cam_filename)
+            tgt_image, src_image_stack = self.unpack_image_sequence(_img_parse_function(img_filename), self.FLAGS.img_height, self.FLAGS.img_width, self.FLAGS.num_source)
+            intrinsics = _cam_parse_function(cam_filename)
 
-                # Data augmentation
-                image_all = tf.concat([tgt_image, src_image_stack], axis=2)
-                image_all, intrinsics = self.data_augmentation(image_all, intrinsics, self.FLAGS.img_height, self.FLAGS.img_width)
-                tgt_image = image_all[:, :, :3]
-                src_image_stack = image_all[:, :, 3:]
-                intrinsics = self.get_multi_scale_intrinsics(intrinsics, self.FLAGS.num_scales)
+            # Data augmentation
+            image_all = tf.concat([tgt_image, src_image_stack], axis=2)
+            image_all, intrinsics = self.data_augmentation(image_all, intrinsics, self.FLAGS.img_height, self.FLAGS.img_width)
+            tgt_image = image_all[:, :, :3]
+            src_image_stack = image_all[:, :, 3:]
+            intrinsics = self.get_multi_scale_intrinsics(intrinsics, self.FLAGS.num_scales)
 
-                return src_image_stack, tgt_image, intrinsics
+            return src_image_stack, tgt_image, intrinsics
 
         def _img_parse_function(filename):
             image_string = tf.io.read_file(filename)
