@@ -134,7 +134,7 @@ def losses(mode, num_scales, num_source, rigid_warp_weight, disp_smooth_weight,
                             tf.concat([tgt_image_pyramid[s], src_image_concat_pyramid[s]], axis=0))
 
         if mode == 'train_rigid':
-            total_loss = (rigid_warp_loss + disp_smooth_loss)
+            total_loss += (rigid_warp_loss + disp_smooth_loss)
 
     return total_loss
 
