@@ -88,22 +88,22 @@ class DispNet(Model):
         self.upconv4 = UpConv(128, 3, 2, batch_normalize=True, kernel_regularizer=kernel_regularizer)
         self.resize_like4 = ResizeLike()
         self.conv4 = Conv(128, 3, 1, padding=padding, activation=activation_fn, batch_normalize=True, kernel_regularizer=kernel_regularizer)
-        self.get_disp_resnet50_4 = GetDispResnet50(batch_normalize=False, kernel_regularizer=kernel_regularizer)
+        self.get_disp_resnet50_4 = GetDispResnet50(kernel_regularizer=kernel_regularizer)
         self.upsample4 = UpSample(2)
 
         self.upconv3 = UpConv(64, 3, 2, batch_normalize=True, kernel_regularizer=kernel_regularizer)
         self.conv3 = Conv(64, 3, 1, padding=padding, activation=activation_fn, batch_normalize=True, kernel_regularizer=kernel_regularizer)
-        self.get_disp_resnet50_3 = GetDispResnet50(batch_normalize=False, kernel_regularizer=kernel_regularizer)
+        self.get_disp_resnet50_3 = GetDispResnet50(kernel_regularizer=kernel_regularizer)
         self.upsample3 = UpSample(2)
 
         self.upconv2 = UpConv(32, 3, 2, batch_normalize=True, kernel_regularizer=kernel_regularizer)
         self.conv2 = Conv(32, 3, 1, padding=padding, activation=activation_fn, batch_normalize=True, kernel_regularizer=kernel_regularizer)
-        self.get_disp_resnet50_2 = GetDispResnet50(batch_normalize=False, kernel_regularizer=kernel_regularizer)
+        self.get_disp_resnet50_2 = GetDispResnet50(kernel_regularizer=kernel_regularizer)
         self.upsample2 = UpSample(2)
 
         self.upconv1 = UpConv(16, 3, 2, batch_normalize=True, kernel_regularizer=kernel_regularizer)
         self.conv1 = Conv(16, 3, 1, padding=padding, activation=activation_fn, batch_normalize=True, kernel_regularizer=kernel_regularizer)
-        self.get_disp_resnet50_1 = GetDispResnet50(batch_normalize=False, kernel_regularizer=kernel_regularizer)
+        self.get_disp_resnet50_1 = GetDispResnet50(kernel_regularizer=kernel_regularizer)
 
     def call(self, inputs, training=None, mask=None):
         conv1 = self.conv(inputs, training=training)
@@ -158,7 +158,7 @@ class DispNet(Model):
 
 
 class Conv(layers.Layer):
-    def __init__(self, num_layers, kernel_size, stride, activation=tf.nn.relu, padding='valid', batch_normalize=True):
+    def __init__(self, num_layers, kernel_size, stride, activation=tf.nn.relu, padding='valid', batch_normalize=True, kernel_regularizer=None):
         super(Conv, self).__init__()
         self.num_layers = num_layers
         self.kernel_size = kernel_size
@@ -166,9 +166,10 @@ class Conv(layers.Layer):
         self.activation = activation
         self.padding = padding
         self.batch_normalize = batch_normalize
+        self.kernel_regularizer = kernel_regularizer
 
     def build(self, input_shape):
-        self.conv = layers.Conv2D(self.num_layers, self.kernel_size, self.stride, self.padding, activation=self.activation)
+        self.conv = layers.Conv2D(self.num_layers, self.kernel_size, self.stride, self.padding, activation=self.activation, kernel_regularizer=self.kernel_regularizer)
         if self.batch_normalize:
             self.bn = layers.BatchNormalization(scale=False)
 
@@ -199,12 +200,13 @@ class Maxpool(layers.Layer):
 
 
 class GetDispResnet50(layers.Layer):
-    def __init__(self):
+    def __init__(self, kernel_regularizer):
         super(GetDispResnet50, self).__init__()
         self.DISP_SCALING_RESNET50 = 5
+        self.kernel_regularizer = kernel_regularizer
 
     def build(self, input_shape=None):
-        self.conv = Conv(1, 3, 1, activation=tf.nn.sigmoid, batch_normalize=False)
+        self.conv = Conv(1, 3, 1, activation=tf.nn.sigmoid, batch_normalize=False, kernel_regularizer=self.kernel_regularizer)
 
     def call(self, x, training=None, mask=None):
         return self.DISP_SCALING_RESNET50 * self.conv(x, training=training) + 0.01
@@ -239,15 +241,17 @@ class UpSample(layers.Layer):
 
 
 class UpConv(layers.Layer):
-    def __init__(self, num_out_layers, kernel_size, scale):
+    def __init__(self, num_out_layers, kernel_size, scale, batch_normalize=True, kernel_regularizer=None):
         super(UpConv, self).__init__()
         self.num_out_layers = num_out_layers
         self.kernel_size = kernel_size
         self.scale = scale
+        self.batch_normalize = batch_normalize
+        self.kernel_regularizer = kernel_regularizer
 
     def build(self, input_shape):
         self.upsample = UpSample(self.scale)
-        self.conv = Conv(self.num_out_layers, self.kernel_size, 1, padding='valid', batch_normalize=True)
+        self.conv = Conv(self.num_out_layers, self.kernel_size, 1, padding='valid', batch_normalize=self.batch_normalize, kernel_regularizer=self.kernel_regularizer)
 
     def call(self, x, training=None, mask=None):
         x = self.upsample(x)
@@ -256,16 +260,18 @@ class UpConv(layers.Layer):
 
 
 class ResConv(layers.Layer):
-    def __init__(self, num_layers, stride):
+    def __init__(self, num_layers, stride, batch_normalize=True, kernel_regularizer=None):
         super(ResConv, self).__init__()
         self.num_layers = num_layers
         self.stride = stride
+        self.batch_normalize = batch_normalize
+        self.kernel_regularizer = kernel_regularizer
 
     def build(self, input_shape):
-        self.conv1 = Conv(self.num_layers, 1, 1, batch_normalize=True)
-        self.conv2 = Conv(self.num_layers, 3, self.stride, batch_normalize=True)
-        self.conv3 = Conv(4 * self.num_layers, 1, 1, activation=None, batch_normalize=True)
-        self.conv_shortcut = Conv(4 * self.num_layers, 1, self.stride, activation=None, batch_normalize=True)
+        self.conv1 = Conv(self.num_layers, 1, 1, batch_normalize=self.batch_normalize, kernel_regularizer=self.kernel_regularizer)
+        self.conv2 = Conv(self.num_layers, 3, self.stride, batch_normalize=self.batch_normalize, kernel_regularizer=self.kernel_regularizer)
+        self.conv3 = Conv(4 * self.num_layers, 1, 1, activation=None, batch_normalize=self.batch_normalize, kernel_regularizer=self.kernel_regularizer)
+        self.conv_shortcut = Conv(4 * self.num_layers, 1, self.stride, activation=None, batch_normalize=self.batch_normalize, kernel_regularizer=self.kernel_regularizer)
 
     def call(self, x, training=None, mask=None):
         do_proj = tf.shape(x)[3] != self.num_layers or self.stride == 2
@@ -281,16 +287,18 @@ class ResConv(layers.Layer):
 
 
 class ResBlock(layers.Layer):
-    def __init__(self, num_layers, num_blocks):
+    def __init__(self, num_layers, num_blocks, batch_normalize=True, kernel_regularizer=None):
         super(ResBlock, self).__init__()
         self.num_layers = num_layers
         self.num_blocks = num_blocks
+        self.batch_normalize = batch_normalize
+        self.kernel_regularizer = kernel_regularizer
         self.resconv1 = []
 
     def build(self, input_shape=None):
         for i in range(self.num_blocks - 1):
-            self.resconv1.append(ResConv(self.num_layers, 1))
-        self.resconv2 = ResConv(self.num_layers, 2)
+            self.resconv1.append(ResConv(self.num_layers, 1, batch_normalize=self.batch_normalize, kernel_regularizer=self.kernel_regularizer))
+        self.resconv2 = ResConv(self.num_layers, 2, batch_normalize=self.batch_normalize, kernel_regularizer=self.kernel_regularizer)
 
     def call(self, x, training=None, mask=None):
         for i in range(self.num_blocks - 1):
