@@ -44,6 +44,12 @@ parser.add_argument('--pose_test_seq', type=int, default=9)
 # FLAGS, unknown_args = parser.parse_known_args()
 FLAGS = parser.parse_args()
 
+@tf.function
+def deprocess_image(image):
+    # Assuming input image is float32
+    image = (image + 1.)/2.
+    return tf.image.convert_image_dtype(image, dtype=tf.uint8)
+
 
 def gray2rgb(im, cmap='plasma'):
     cmap = plt.get_cmap(cmap)
@@ -113,16 +119,16 @@ def train():
                     tf.summary.scalar('loss', loss, step=step)
 
                     # input images
-                    tf.summary.image('tgt_image', tgt_image_pyramid[0]/255.0, step=step) # [4, 128, 416, 3]
-                    tf.summary.image('src_image', src_image_concat_pyramid[0]/255.0, step=step) # [8, 128, 416, 3]
+                    tf.summary.image('tgt_image', deprocess_image(tgt_image_pyramid[0])/255, step=step) # [4, 128, 416, 3]
+                    tf.summary.image('src_image', deprocess_image(src_image_concat_pyramid[0])/255, step=step) # [8, 128, 416, 3]
 
                     # pred_depth # [12, 128, 416, 1] x num_scales=3
                     norm_pred_depth = normalize_depth_for_display(pred_depth[0].numpy())
                     tf.summary.image('norm_pred_depth', norm_pred_depth, step=step)
 
-                    # rigid_ward
-                    tf.summary.image('fwd_rigid_warp_img', fwd_rigid_warp_pyramid[0]/255.0, step=step)  # [8, 128, 416, 3]
-                    tf.summary.image('bwd_rigid_warp_img', bwd_rigid_warp_pyramid[0]/255.0, step=step) # [8, 128, 416, 3]
+                    # rigid_warp_img
+                    tf.summary.image('fwd_rigid_warp_img', deprocess_image(fwd_rigid_warp_pyramid[0])/255, step=step)  # [8, 128, 416, 3]
+                    tf.summary.image('bwd_rigid_warp_img', deprocess_image(bwd_rigid_warp_pyramid[0])/255, step=step) # [8, 128, 416, 3]
 
                     # pred_flow
                     color_fwd_flow_list = []
