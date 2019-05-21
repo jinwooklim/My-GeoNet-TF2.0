@@ -2,6 +2,7 @@ from geonet_nets import *
 from utils import *
 import tensorflow as tf
 
+
 @tf.function
 def scale_pyramid(img, num_scales):
     if img == None:
@@ -20,7 +21,7 @@ def scale_pyramid(img, num_scales):
 @tf.function
 def spatial_normalize(disp):
     _, curr_h, curr_w, curr_c = disp.get_shape().as_list()
-    disp_mean = tf.reduce_mean(disp, axis=[1,2,3], keep_dims=True)
+    disp_mean = tf.reduce_mean(disp, axis=[1, 2, 3], keep_dims=True)
     disp_mean = tf.tile(disp_mean, [1, curr_h, curr_w, curr_c])
     return disp/disp_mean
 
@@ -59,9 +60,9 @@ def build_rigid_flow_warping(num_scales, num_source, alpha_recon_image, src_imag
     for s in range(num_scales):
         for i in range(num_source):
             fwd_rigid_flow = compute_rigid_flow(tf.squeeze(pred_depth[s][:bs], axis=3),
-                             pred_poses[:,i,:], intrinsics[:,s,:,:], False)
+                             pred_poses[:, i, :], intrinsics[:, s, :, :], False)
             bwd_rigid_flow = compute_rigid_flow(tf.squeeze(pred_depth[s][bs*(i+1):bs*(i+2)], axis=3),
-                             pred_poses[:,i,:], intrinsics[:,s,:,:], True)
+                             pred_poses[:, i, :], intrinsics[:, s, :, :], True)
             if not i:
                 fwd_rigid_flow_concat = fwd_rigid_flow
                 bwd_rigid_flow_concat = bwd_rigid_flow
@@ -86,13 +87,13 @@ def build_rigid_flow_warping(num_scales, num_source, alpha_recon_image, src_imag
 
 @tf.function
 def gradient_x(img):
-    gx = img[:,:,:-1,:] - img[:,:,1:,:]
+    gx = img[:, :, :-1, :] - img[:, :, 1:, :]
     return gx
 
 
 @tf.function
 def gradient_y(img):
-    gy = img[:,:-1,:,:] - img[:,1:,:,:]
+    gy = img[:, :-1, :, :] - img[:, 1:, :, :]
     return gy
 
 
@@ -160,7 +161,7 @@ class GeoNet(Model):
 
         # src images concated along batch dimension
         if src_image_stack != None:
-            src_image_concat = tf.concat([src_image_stack[:,:,:,3*i:3*(i+1)] \
+            src_image_concat = tf.concat([src_image_stack[:, :, :, 3*i:3*(i+1)] \
                                     for i in range(self.num_source)], axis=0)
             src_image_concat_pyramid = scale_pyramid(src_image_concat, self.num_scales)
 

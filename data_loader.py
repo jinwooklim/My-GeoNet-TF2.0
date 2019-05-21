@@ -1,8 +1,5 @@
-import numpy as np
 import tensorflow as tf
 import os
-import random
-import utils2
 
 
 class DataLoader(object):
@@ -52,7 +49,7 @@ class DataLoader(object):
     def make_intrinsics_matrix(self, fx, fy, cx, cy):
         r1 = tf.stack([fx, 0, cx])
         r2 = tf.stack([0, fy, cy])
-        r3 = tf.constant([0.,0.,1.])
+        r3 = tf.constant([0., 0., 1.])
         intrinsics = tf.stack([r1, r2, r3])
         return intrinsics
 
@@ -103,7 +100,7 @@ class DataLoader(object):
             # randomly shift color
             random_colors = tf.random.uniform([in_c], 0.8, 1.2)
             white = tf.ones([in_h, in_w])
-            color_image = tf.stack([white * random_colors[i] for i in range(in_c)], axis=2) # 3
+            color_image = tf.stack([white * random_colors[i] for i in range(in_c)], axis=2)  # 3
             im_aug *= color_image
 
             # saturate
@@ -115,7 +112,7 @@ class DataLoader(object):
         im, intrinsics = random_scaling(im, intrinsics)
         im, intrinsics = random_cropping(im, intrinsics, out_h, out_w)
         im = tf.cast(im, dtype=tf.uint8)
-        do_augment  = tf.random.uniform([], 0, 1)
+        do_augment = tf.random.uniform([], 0, 1)
         im = tf.cond(do_augment > 0.5, lambda: random_coloring(im), lambda: im)
         return im, intrinsics
 
@@ -172,5 +169,5 @@ class DataLoader(object):
             cy = intrinsics[1, 2]/(2 ** s)
             intrinsics_mscale.append(
                 self.make_intrinsics_matrix(fx, fy, cx, cy))
-        intrinsics_mscale = tf.stack(intrinsics_mscale) # axis=1
+        intrinsics_mscale = tf.stack(intrinsics_mscale)  # axis=1
         return intrinsics_mscale

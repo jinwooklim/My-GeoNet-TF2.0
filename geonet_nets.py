@@ -1,7 +1,7 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 import tensorflow as tf
 from tensorflow.python.keras import layers, Model, regularizers
-import numpy as np
+# import numpy as np
 
 
 class PoseNet(Model):
@@ -174,7 +174,8 @@ class Conv(layers.Layer):
             self.bn = layers.BatchNormalization(scale=False)
 
     def call(self, x, training=None, mask=None):
-        p = np.floor((self.kernel_size - 1) / 2).astype(np.int32)
+        # p = np.floor((self.kernel_size - 1) / 2).astype(np.int32)
+        p = tf.cast(tf.math.floor((self.kernel_size - 1) / 2), dtype=tf.int32)
         p_x = tf.pad(x, [[0, 0], [p, p], [p, p], [0, 0]])
         p_x = self.conv(p_x)
         if self.batch_normalize:
@@ -193,7 +194,8 @@ class Maxpool(layers.Layer):
         self.maxpool = layers.MaxPool2D(self.pool_size, self.stride, self.padding)
 
     def call(self, x, training=None, mask=None):
-        p = np.floor((self.pool_size - 1) / 2).astype(np.int32)
+        # p = np.floor((self.pool_size - 1) / 2).astype(np.int32)
+        p = tf.cast(tf.math.floor((self.pool_size - 1) / 2), dtype=tf.int32)
         p_x = tf.pad(x, [[0, 0], [p, p], [p, p], [0, 0]])
         p_x = self.maxpool(p_x)
         return p_x
