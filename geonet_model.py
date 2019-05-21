@@ -47,7 +47,7 @@ def SSIM(x, y):
 
 @tf.function
 def image_similarity(alpha_recon_image, x, y):
-    return alpha_recon_image * SSIM(x, y) + (1.0 - alpha_recon_image) * tf.abs(x-y)
+    return (alpha_recon_image * SSIM(x, y)) + ((1.0 - alpha_recon_image) * tf.abs(x-y))
 
 
 @tf.function
@@ -117,24 +117,24 @@ def compute_smooth_loss(disp, img):
 def losses(mode, num_scales, num_source, rigid_warp_weight, disp_smooth_weight,
            tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, pred_disp):
 
-    total_loss = 0
+    rigid_warp_loss = 0
+    disp_smooth_loss = 0
 
     for s in range(num_scales):
         # rigid_warp_loss
-        rigid_warp_loss = 0
-        disp_smooth_loss = 0
         if mode == 'train_rigid' and rigid_warp_weight > 0:
-            rigid_warp_loss = rigid_warp_weight*(num_source/2) * \
+            rigid_warp_loss += rigid_warp_weight*(num_source/2) * \
                             (tf.reduce_mean(fwd_rigid_error_pyramid[s]) + \
                              tf.reduce_mean(bwd_rigid_error_pyramid[s]))
 
         # disp_smooth_loss
         if mode == 'train_rigid' and disp_smooth_weight > 0:
-            disp_smooth_loss = disp_smooth_weight/(2**s) * compute_smooth_loss(pred_disp[s],
+            disp_smooth_loss += disp_smooth_weight/(2**s) * compute_smooth_loss(pred_disp[s],
                             tf.concat([tgt_image_pyramid[s], src_image_concat_pyramid[s]], axis=0))
 
-        if mode == 'train_rigid':
-            total_loss += (rigid_warp_loss + disp_smooth_loss)
+    total_loss = 0
+    if mode == 'train_rigid':
+        total_loss += (rigid_warp_loss + disp_smooth_loss)
 
     return total_loss
 
@@ -151,8 +151,8 @@ class GeoNet(Model):
 
     def call(self, inputs, training=None, mask=None):
         # Data preprocess
-        tgt_image = inputs[0]
-        src_image_stack = inputs[1]
+        tgt_image = preprocess_image(inputs[0])
+        src_image_stack = preprocess_image(inputs[1])
         intrinsics = inputs[2]
 
         tgt_image_pyramid = scale_pyramid(tgt_image, self.num_scales)
@@ -200,3 +200,13 @@ class GeoNet(Model):
                                                                                     pred_poses)
 
         return [tgt_image_pyramid, src_image_concat_pyramid, pred_disp, pred_depth, pred_poses, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid]
+
+
+@tf.function
+def preprocess_image(image):
+    # Assuming input image is uint8
+    if image == None:
+        return None
+    else:
+        image = tf.image.convert_image_dtype(image, dtype=tf.float32)
+        return image * 2. - 1.
