@@ -51,6 +51,9 @@ def image_similarity(alpha_recon_image, x, y):
     return (alpha_recon_image * SSIM(x, y)) + ((1.0 - alpha_recon_image) * tf.abs(x-y))
 
 
+'''
+TODO : Convert tf.function -> tf.keras.Model
+'''
 @tf.function
 def build_rigid_flow_warping(num_scales, num_source, alpha_recon_image, src_image_concat_pyramid, tgt_image_tile_pyramid, pred_depth, intrinsics, pred_poses):
     bs = tf.shape(intrinsics)[0] # bs : 4

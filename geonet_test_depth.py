@@ -22,9 +22,7 @@ def test_depth(FLAGS):
     geonet = GeoNet(FLAGS.num_scales, FLAGS.num_source, FLAGS.alpha_recon_image)
 
     checkpoint_path = os.path.join(FLAGS.init_ckpt_file)
-    ckpt = tf.train.Checkpoint(net=geonet)
-    manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=FLAGS.max_to_keep)
-    ckpt.restore(manager.latest_checkpoint)
+    geonet.load_weights(checkpoint_path)
 
     ##### Go #####
     pred_all = []

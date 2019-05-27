@@ -30,9 +30,7 @@ def test_pose(FLAGS):
     ##### Go! #####
     max_src_offset = (FLAGS.seq_length - 1) // 2
     checkpoint_path = os.path.join(FLAGS.init_ckpt_file)
-    ckpt = tf.train.Checkpoint(net=geonet)
-    manager = tf.train.CheckpointManager(ckpt, checkpoint_path, max_to_keep=FLAGS.max_to_keep)
-    ckpt.restore(manager.latest_checkpoint)
+    geonet.load_weights(checkpoint_path)
 
     for tgt_idx in range(max_src_offset, N-max_src_offset, FLAGS.batch_size):
         if (tgt_idx-max_src_offset) % 100 == 0:
