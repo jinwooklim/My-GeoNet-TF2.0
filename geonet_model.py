@@ -51,11 +51,20 @@ def image_similarity(alpha_recon_image, x, y):
     return (alpha_recon_image * SSIM(x, y)) + ((1.0 - alpha_recon_image) * tf.abs(x-y))
 
 
+@tf.function
+def L2_norm(x, axis=3, keepdims=True):
+    curr_offset = 1e-10
+    l2_norm = tf.norm(tf.abs(x) + curr_offset, axis=axis, keepdims=keepdims)
+    return l2_norm
+
+
 '''
 TODO : Convert tf.function -> tf.keras.Model
 '''
 @tf.function
-def build_rigid_flow_warping(num_scales, num_source, alpha_recon_image, src_image_concat_pyramid, tgt_image_tile_pyramid, pred_depth, intrinsics, pred_poses):
+def build_rigid_flow_warping(num_scales, num_source, alpha_recon_image,
+                             src_image_concat_pyramid, tgt_image_tile_pyramid,
+                             pred_depth, intrinsics, pred_poses):
     bs = tf.shape(intrinsics)[0] # bs : 4
     # build rigid flow (fwd: tgt->src, bwd: src->tgt)
     fwd_rigid_flow_pyramid = []
@@ -118,92 +127,134 @@ def compute_smooth_loss(disp, img):
 
 
 @tf.function
-def losses(mode, num_scales, num_source, rigid_warp_weight, disp_smooth_weight,
-           tgt_image_pyramid, src_image_concat_pyramid, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, pred_disp):
+def build_full_flow_warping(num_scales, alpha_recon_image,
+                            src_image_concat_pyramid, tgt_image_tile_pyramid,
+                            fwd_full_flow_pyramid, bwd_full_flow_pyramid):
+    # warping by full flow
+    fwd_full_warp_pyramid = [flow_warp(src_image_concat_pyramid[s], fwd_full_flow_pyramid[s])
+                             for s in range(num_scales)]
+
+    bwd_full_warp_pyramid = [flow_warp(tgt_image_tile_pyramid[s], bwd_full_flow_pyramid[s])
+                             for s in range(num_scales)]
+
+    # compute reconstruction error
+    fwd_full_error_pyramid = [image_similarity(alpha_recon_image, fwd_full_warp_pyramid[s], tgt_image_tile_pyramid[s])
+                              for s in range(num_scales)]
+    bwd_full_error_pyramid = [image_similarity(alpha_recon_image, bwd_full_warp_pyramid[s], src_image_concat_pyramid[s])
+                              for s in range(num_scales)]
+
+    return fwd_full_warp_pyramid, bwd_full_warp_pyramid, fwd_full_error_pyramid, bwd_full_error_pyramid
+
+
+@tf.function
+def build_flow_consistency(num_scales, flow_consistency_alpha, flow_consistency_beta, fwd_full_flow_pyramid, bwd_full_flow_pyramid):
+    # warp pyramid full flow
+    bwd2fwd_flow_pyramid = [flow_warp(bwd_full_flow_pyramid[s], fwd_full_flow_pyramid[s]) \
+                                 for s in range(num_scales)]
+    fwd2bwd_flow_pyramid = [flow_warp(fwd_full_flow_pyramid[s], bwd_full_flow_pyramid[s]) \
+                                 for s in range(num_scales)]
+
+    # calculate flow consistency
+    fwd_flow_diff_pyramid = [tf.abs(bwd2fwd_flow_pyramid[s] + fwd_full_flow_pyramid[s]) for s in
+                                  range(num_scales)]
+    bwd_flow_diff_pyramid = [tf.abs(fwd2bwd_flow_pyramid[s] + bwd_full_flow_pyramid[s]) for s in
+                                  range(num_scales)]
+
+    # build flow consistency condition
+    fwd_consist_bound = [flow_consistency_beta * L2_norm(fwd_full_flow_pyramid[s]) * 2 ** s for s in
+                              range(num_scales)]
+    bwd_consist_bound = [flow_consistency_beta * L2_norm(bwd_full_flow_pyramid[s]) * 2 ** s for s in
+                              range(num_scales)]
+    fwd_consist_bound = [tf.stop_gradient(tf.maximum(v, flow_consistency_alpha)) for v in
+                              fwd_consist_bound]
+    bwd_consist_bound = [tf.stop_gradient(tf.maximum(v, flow_consistency_alpha)) for v in
+                              bwd_consist_bound]
+
+    # build flow consistency mask
+    noc_masks_src = [tf.cast(tf.less(L2_norm(bwd_flow_diff_pyramid[s]) * 2 ** s,
+                                          bwd_consist_bound[s]), tf.float32) for s in range(num_scales)]
+    noc_masks_tgt = [tf.cast(tf.less(L2_norm(fwd_flow_diff_pyramid[s]) * 2 ** s,
+                                          fwd_consist_bound[s]), tf.float32) for s in range(num_scales)]
+
+    return noc_masks_tgt, noc_masks_src, fwd_flow_diff_pyramid, bwd_flow_diff_pyramid
+
+
+@tf.function
+def rigid_losses(num_scales, num_source, rigid_warp_weight, disp_smooth_weight,
+                 tgt_image_pyramid, src_image_concat_pyramid,
+                 fwd_rigid_error_pyramid, bwd_rigid_error_pyramid,
+                 pred_disp):
 
     rigid_warp_loss = 0
     disp_smooth_loss = 0
 
     for s in range(num_scales):
         # rigid_warp_loss
-        if mode == 'train_rigid' and rigid_warp_weight > 0:
-            rigid_warp_loss += rigid_warp_weight*(num_source/2) * \
+        if rigid_warp_weight > 0:
+            rigid_warp_loss += rigid_warp_weight * num_source/2 * \
                             (tf.reduce_mean(fwd_rigid_error_pyramid[s]) + \
                              tf.reduce_mean(bwd_rigid_error_pyramid[s]))
 
         # disp_smooth_loss
-        if mode == 'train_rigid' and disp_smooth_weight > 0:
+        if disp_smooth_weight > 0:
             disp_smooth_loss += disp_smooth_weight/(2**s) * compute_smooth_loss(pred_disp[s],
                             tf.concat([tgt_image_pyramid[s], src_image_concat_pyramid[s]], axis=0))
 
     total_loss = 0
-    if mode == 'train_rigid':
-        total_loss += (rigid_warp_loss + disp_smooth_loss)
+    total_loss += (rigid_warp_loss + disp_smooth_loss)
 
     return total_loss
 
 
-class GeoNet(Model):
-    def __init__(self, num_scales, num_source, alpha_recon_image):
-        super(GeoNet, self).__init__()
-        self.num_scales = num_scales
-        self.num_source = num_source
-        self.alpha_recon_image = alpha_recon_image
+@tf.function
+def flow_losses(num_scales, num_source, flow_warp_weight, flow_consistency_weight, flow_smooth_weight,
+                fwd_full_flow_pyramid, bwd_full_flow_pyramid,
+                fwd_full_error_pyramid, bwd_full_error_pyramid,
+                noc_masks_tgt, noc_masks_src,
+                tgt_image_tile_pyramid, src_image_concat_pyramid,
+                fwd_flow_diff_pyramid, bwd_flow_diff_pyramid):
+    flow_warp_loss = 0
+    flow_smooth_loss = 0
+    flow_consistency_loss = 0
 
-        self.pose_net = PoseNet(num_source=self.num_source)
-        self.disp_net = DispNet()
+    for s in range(num_scales):
+        # flow_warp_loss
+        if flow_warp_weight > 0:
+            if flow_consistency_weight == 0:
+                flow_warp_loss += flow_warp_weight * num_source / 2 * \
+                                  (tf.reduce_mean(fwd_full_error_pyramid[s]) + tf.reduce_mean(
+                                      bwd_full_error_pyramid[s]))
+            else:
+                flow_warp_loss += flow_warp_weight * num_source / 2 * \
+                                  (tf.reduce_sum(
+                                      tf.reduce_mean(fwd_full_error_pyramid[s], axis=3, keepdims=True) * \
+                                      noc_masks_tgt[s]) / tf.reduce_sum(noc_masks_tgt[s]) + \
+                                   tf.reduce_sum(
+                                       tf.reduce_mean(bwd_full_error_pyramid[s], axis=3, keepdims=True) * \
+                                       noc_masks_src[s]) / tf.reduce_sum(noc_masks_src[s]))
 
-    def call(self, inputs, training=None, mask=None):
-        # Data preprocess
-        tgt_image = preprocess_image(inputs[0])
-        src_image_stack = preprocess_image(inputs[1])
-        intrinsics = inputs[2]
+        # flow_smooth_loss
+        if flow_warp_weight > 0:
+            flow_smooth_loss += flow_smooth_weight / (2 ** (s + 1)) * \
+                                (compute_flow_smooth_loss(fwd_full_flow_pyramid[s],
+                                                               tgt_image_tile_pyramid[s]) +
+                                 compute_flow_smooth_loss(bwd_full_flow_pyramid[s],
+                                                               src_image_concat_pyramid[s]))
 
-        tgt_image_pyramid = scale_pyramid(tgt_image, self.num_scales)
-        tgt_image_tile_pyramid = [tf.tile(img, [self.num_source, 1, 1, 1]) for img in tgt_image_pyramid]
+        # flow_consistency_loss
+        if flow_consistency_weight > 0:
+            flow_consistency_loss += flow_consistency_weight / 2 * \
+                                     (tf.reduce_sum(
+                                         tf.reduce_mean(fwd_flow_diff_pyramid[s], axis=3, keepdims=True) * \
+                                         noc_masks_tgt[s]) / tf.reduce_sum(noc_masks_tgt[s]) + \
+                                      tf.reduce_sum(
+                                          tf.reduce_mean(bwd_flow_diff_pyramid[s], axis=3, keepdims=True) * \
+                                          noc_masks_src[s]) / tf.reduce_sum(noc_masks_src[s]))
 
-        # src images concated along batch dimension
-        if src_image_stack != None:
-            src_image_concat = tf.concat([src_image_stack[:, :, :, 3*i:3*(i+1)] \
-                                    for i in range(self.num_source)], axis=0)
-            src_image_concat_pyramid = scale_pyramid(src_image_concat, self.num_scales)
+        total_loss = 0
+        total_loss += (flow_warp_loss + flow_smooth_loss + flow_consistency_loss)
 
-        ### DepthNet part
-        # build dispnet_inputs
-        if training == False: #self.opt['mode'] == 'test_depth':
-            # for test_depth mode we only predict the depth of the target image
-            dispnet_inputs = tgt_image
-        else:
-            # multiple depth predictions; tgt: disp[:bs,:,:,:] src.i: disp[bs*(i+1):bs*(i+2),:,:,:]
-            dispnet_inputs = tgt_image
-            for i in range(self.num_source):
-                dispnet_inputs = tf.concat([dispnet_inputs, src_image_stack[:, :, :, 3 * i:3 * (i + 1)]], axis=0)
-
-        # DepthNet Forward
-        pred_disp = self.disp_net(dispnet_inputs, training=training)
-
-        # DepthNet result
-        pred_depth = [1. / d for d in pred_disp]
-
-        ### PoseNet part
-        # build posenet_inputs
-        posenet_inputs = tf.concat([tgt_image, src_image_stack], axis=3)
-
-        # build posenet
-        pred_poses = self.pose_net(posenet_inputs, training=training)
-
-        # print("111 : ", pred_poses) # (4, 2, 6)
-        fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid = build_rigid_flow_warping(
-                                                                                    self.num_scales,
-                                                                                    self.num_source,
-                                                                                    self.alpha_recon_image,
-                                                                                    src_image_concat_pyramid,
-                                                                                    tgt_image_tile_pyramid,
-                                                                                    pred_depth,
-                                                                                    intrinsics,
-                                                                                    pred_poses)
-
-        return [tgt_image_pyramid, src_image_concat_pyramid, pred_disp, pred_depth, pred_poses, fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid]
+        return total_loss
 
 
 @tf.function
@@ -214,3 +265,195 @@ def preprocess_image(image):
     else:
         image = tf.image.convert_image_dtype(image, dtype=tf.float32)
         return image * 2. - 1.
+
+
+@tf.function
+def compute_flow_smooth_loss(flow, img):
+    smoothness = 0
+    for i in range(2):
+        smoothness += compute_smooth_loss(tf.expand_dims(flow[:, :, :, i], -1), img)
+    return smoothness/2
+
+
+class GeoNet(Model):
+    def __init__(self, FLAGS):
+        super(GeoNet, self).__init__()
+        self.FLAGS = FLAGS
+
+        self.pose_net = PoseNet(num_source=self.FLAGS['num_source'])
+        self.disp_net = DispNet()
+        self.flow_net = FlowNet()
+
+    def call(self, inputs, training=None, mask=None):
+        '''
+        # Input data preprocessing part
+        '''
+        tgt_image = preprocess_image(inputs[0])
+        src_image_stack = preprocess_image(inputs[1])
+        intrinsics = inputs[2]
+
+        tgt_image_pyramid = scale_pyramid(tgt_image, self.FLAGS['num_scales'])
+        tgt_image_tile_pyramid = [tf.tile(img, [self.FLAGS['num_source'], 1, 1, 1]) for img in tgt_image_pyramid]
+
+        # src images concated along batch dimension
+        if src_image_stack != None:
+            src_image_concat = tf.concat([src_image_stack[:, :, :, 3*i:3*(i+1)] \
+                                    for i in range(self.FLAGS['num_source'])], axis=0)
+            src_image_concat_pyramid = scale_pyramid(src_image_concat, self.FLAGS['num_scales'])
+
+        if self.FLAGS['mode'] == 'train_rigid':
+            '''
+            # DepthNet part
+            '''
+            # build dispnet_inputs
+            if training == False: #self.opt['mode'] == 'test_depth':
+                # for test_depth mode we only predict the depth of the target image
+                dispnet_inputs = tgt_image
+            else:
+                # multiple depth predictions; tgt: disp[:bs,:,:,:] src.i: disp[bs*(i+1):bs*(i+2),:,:,:]
+                dispnet_inputs = tgt_image
+                for i in range(self.FLAGS['num_source']):
+                    dispnet_inputs = tf.concat([dispnet_inputs, src_image_stack[:, :, :, 3 * i:3 * (i + 1)]], axis=0)
+
+            # DepthNet Forward
+            pred_disp = self.disp_net(dispnet_inputs, training=training)
+
+            # DepthNet result
+            pred_depth = [1. / d for d in pred_disp]
+
+            '''
+            # PoseNet part
+            '''
+            # build posenet_inputs
+            posenet_inputs = tf.concat([tgt_image, src_image_stack], axis=3)
+
+            # build posenet
+            pred_poses = self.pose_net(posenet_inputs, training=training)
+
+            '''
+            # Computing Rigid Flow part
+            '''
+            fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, \
+            fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, \
+            fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid = build_rigid_flow_warping(
+                self.FLAGS['num_scales'], self.FLAGS['num_source'], self.FLAGS['alpha_recon_image'],
+                src_image_concat_pyramid, tgt_image_tile_pyramid, pred_depth, intrinsics, pred_poses)
+
+            return tgt_image_pyramid, src_image_concat_pyramid, \
+                   pred_disp, pred_depth, pred_poses, \
+                   fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, \
+                   fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, \
+                   fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid
+
+        elif self.FLAGS['mode'] == 'train_flow':
+            '''
+            # DepthNet part
+            '''
+            # build dispnet_inputs
+            if training == False: #self.opt['mode'] == 'test_depth':
+                # for test_depth mode we only predict the depth of the target image
+                dispnet_inputs = tgt_image
+            else:
+                # multiple depth predictions; tgt: disp[:bs,:,:,:] src.i: disp[bs*(i+1):bs*(i+2),:,:,:]
+                dispnet_inputs = tgt_image
+                for i in range(self.FLAGS['num_source']):
+                    dispnet_inputs = tf.concat([dispnet_inputs, src_image_stack[:, :, :, 3 * i:3 * (i + 1)]], axis=0)
+
+            # DepthNet Forward
+            pred_disp = self.disp_net(dispnet_inputs, training=False)
+
+            # DepthNet result
+            pred_depth = [1. / d for d in pred_disp]
+
+            '''
+            # PoseNet part
+            '''
+            # build posenet_inputs
+            posenet_inputs = tf.concat([tgt_image, src_image_stack], axis=3)
+
+            # build posenet
+            pred_poses = self.pose_net(posenet_inputs, training=False)
+
+            '''
+            # Computing Rigid Flow part
+            '''
+            fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid = build_rigid_flow_warping(
+                                                                                        self.FLAGS['num_scales'], self.FLAGS['num_source'], self.FLAGS['alpha_recon_image'],
+                                                                                        src_image_concat_pyramid,
+                                                                                        tgt_image_tile_pyramid,
+                                                                                        pred_depth,
+                                                                                        intrinsics,
+                                                                                        pred_poses)
+
+            '''
+            # FlowNet part
+            '''
+            # build flownet_inputs
+            fwd_flownet_inputs = tf.concat([tgt_image_tile_pyramid[0], src_image_concat_pyramid[0]], axis=3)
+            bwd_flownet_inputs = tf.concat([src_image_concat_pyramid[0], tgt_image_tile_pyramid[0]], axis=3)
+            if self.FLAGS['flownet_type'] == 'residual':
+                fwd_flownet_inputs = tf.concat([fwd_flownet_inputs,
+                                                     fwd_rigid_warp_pyramid[0],
+                                                     fwd_rigid_flow_pyramid[0],
+                                                     L2_norm(fwd_rigid_error_pyramid[0])], axis=3)
+                bwd_flownet_inputs = tf.concat([bwd_flownet_inputs,
+                                                     bwd_rigid_warp_pyramid[0],
+                                                     bwd_rigid_flow_pyramid[0],
+                                                     L2_norm(bwd_rigid_error_pyramid[0])], axis=3)
+            flownet_inputs = tf.concat([fwd_flownet_inputs, bwd_flownet_inputs], axis=0)
+
+            # build flownet
+            pred_flow = self.flow_net(flownet_inputs)
+
+            # unnormalize pyramid flow back into pixel metric
+            for s in range(self.FLAGS['num_scales']):
+                curr_bs, curr_h, curr_w, _ = pred_flow[s].get_shape().as_list()
+                scale_factor = tf.cast(tf.constant([curr_w, curr_h], shape=[1, 1, 1, 2]), 'float32')
+                scale_factor = tf.tile(scale_factor, [curr_bs, curr_h, curr_w, 1])
+                pred_flow[s] = pred_flow[s] * scale_factor
+
+            # split forward/backward flows
+            fwd_full_flow_pyramid = [pred_flow[s][:self.FLAGS['batch_size'] * self.FLAGS['num_source']] for s in
+                                          range(self.FLAGS['num_scales'])]
+            bwd_full_flow_pyramid = [pred_flow[s][self.FLAGS['batch_size'] * self.FLAGS['num_source']:] for s in
+                                          range(self.FLAGS['num_scales'])]
+
+            # residual flow postprocessing
+            if self.FLAGS['flownet_type'] == 'residual':
+                fwd_full_flow_pyramid = [fwd_full_flow_pyramid[s] + fwd_rigid_flow_pyramid[s] for s in
+                                              range(self.FLAGS['num_scales'])]
+                bwd_full_flow_pyramid = [bwd_full_flow_pyramid[s] + bwd_rigid_flow_pyramid[s] for s in
+                                              range(self.FLAGS['num_scales'])]
+
+            '''
+            # Computing Residual Flow part
+            '''
+            fwd_full_warp_pyramid, bwd_full_warp_pyramid, \
+            fwd_full_error_pyramid, bwd_full_error_pyramid = build_full_flow_warping(self.FLAGS['num_scales'],
+                                                                                     self.FLAGS['alpha_recon_image'],
+                                                                                     src_image_concat_pyramid,
+                                                                                     tgt_image_tile_pyramid,
+                                                                                     fwd_full_flow_pyramid,
+                                                                                     bwd_full_flow_pyramid)
+
+            if self.FLAGS['flow_consistency_weight'] > 0:
+                noc_masks_tgt, noc_masks_src, \
+                fwd_flow_diff_pyramid, bwd_flow_diff_pyramid = build_flow_consistency(
+                    self.FLAGS['num_scales'],
+                    self.FLAGS['flow_consistency_alpha'], self.FLAGS['flow_consistency_beta'],
+                    fwd_full_flow_pyramid, bwd_full_flow_pyramid)
+
+                return [tgt_image_pyramid, src_image_concat_pyramid,
+                        fwd_full_flow_pyramid, bwd_full_flow_pyramid,
+                        fwd_full_error_pyramid, bwd_full_error_pyramid,
+                        noc_masks_tgt, noc_masks_src,
+                        tgt_image_tile_pyramid, src_image_concat_pyramid,
+                        fwd_flow_diff_pyramid, bwd_flow_diff_pyramid]
+
+            else:
+                return [tgt_image_pyramid, src_image_concat_pyramid,
+                        fwd_full_flow_pyramid, bwd_full_flow_pyramid,
+                        fwd_full_error_pyramid, bwd_full_error_pyramid,
+                        tgt_image_tile_pyramid, src_image_concat_pyramid]
+
+

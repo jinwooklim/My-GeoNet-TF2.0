@@ -1,7 +1,6 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 import tensorflow as tf
 from tensorflow.python.keras import layers, Model, regularizers
-# import numpy as np
 
 
 class PoseNet(Model):
@@ -66,44 +65,51 @@ class PoseNet(Model):
 class DispNet(Model):
     def __init__(self):
         super(DispNet, self).__init__()
-        activation_fn = tf.nn.relu
-        kernel_regularizer = regularizers.l2(0.0001)
-        padding = 'valid'
+        self.activation_fn = tf.nn.relu
+        self.kernel_regularizer = regularizers.l2(0.0001)
+        self.padding = 'valid'
 
-        self.conv = Conv(64, 7, 2, padding=padding, activation=activation_fn, batch_normalize=True, kernel_regularizer=kernel_regularizer)
-        self.maxpool = Maxpool(3, padding=padding)
-        self.resblock1 = ResBlock(64, 3, batch_normalize=True, kernel_regularizer=kernel_regularizer)
-        self.resblock2 = ResBlock(128, 4, batch_normalize=True, kernel_regularizer=kernel_regularizer)
-        self.resblock3 = ResBlock(256, 6, batch_normalize=True, kernel_regularizer=kernel_regularizer)
-        self.resblock4 = ResBlock(512, 3, batch_normalize=True, kernel_regularizer=kernel_regularizer)
+        self.conv = Conv(64, 7, 2, padding=self.padding, activation=self.activation_fn, batch_normalize=True,
+                         kernel_regularizer=self.kernel_regularizer)
+        self.maxpool = Maxpool(3, padding=self.padding)
+        self.resblock1 = ResBlock(64, 3, batch_normalize=True, kernel_regularizer=self.kernel_regularizer)
+        self.resblock2 = ResBlock(128, 4, batch_normalize=True, kernel_regularizer=self.kernel_regularizer)
+        self.resblock3 = ResBlock(256, 6, batch_normalize=True, kernel_regularizer=self.kernel_regularizer)
+        self.resblock4 = ResBlock(512, 3, batch_normalize=True, kernel_regularizer=self.kernel_regularizer)
 
-        self.upconv6 = UpConv(512, 3, 2, batch_normalize=True, kernel_regularizer=kernel_regularizer)
+        self.upconv6 = UpConv(512, 3, 2, batch_normalize=True, kernel_regularizer=self.kernel_regularizer)
         self.resize_like6 = ResizeLike()
-        self.conv6 = Conv(512, 3, 1, padding=padding, activation=activation_fn, batch_normalize=True, kernel_regularizer=kernel_regularizer)
+        self.conv6 = Conv(512, 3, 1, padding=self.padding, activation=self.activation_fn, batch_normalize=True,
+                          kernel_regularizer=self.kernel_regularizer)
 
-        self.upconv5 = UpConv(256, 3, 2, batch_normalize=True, kernel_regularizer=kernel_regularizer)
+        self.upconv5 = UpConv(256, 3, 2, batch_normalize=True, kernel_regularizer=self.kernel_regularizer)
         self.resize_like5 = ResizeLike()
-        self.conv5 = Conv(256, 3, 1, padding=padding, activation=activation_fn, batch_normalize=True, kernel_regularizer=kernel_regularizer)
+        self.conv5 = Conv(256, 3, 1, padding=self.padding, activation=self.activation_fn, batch_normalize=True,
+                          kernel_regularizer=self.kernel_regularizer)
 
-        self.upconv4 = UpConv(128, 3, 2, batch_normalize=True, kernel_regularizer=kernel_regularizer)
+        self.upconv4 = UpConv(128, 3, 2, batch_normalize=True, kernel_regularizer=self.kernel_regularizer)
         self.resize_like4 = ResizeLike()
-        self.conv4 = Conv(128, 3, 1, padding=padding, activation=activation_fn, batch_normalize=True, kernel_regularizer=kernel_regularizer)
-        self.get_disp_resnet50_4 = GetDispResnet50(kernel_regularizer=kernel_regularizer)
+        self.conv4 = Conv(128, 3, 1, padding=self.padding, activation=self.activation_fn, batch_normalize=True,
+                          kernel_regularizer=self.kernel_regularizer)
+        self.get_disp_resnet50_4 = GetDispResnet50(kernel_regularizer=self.kernel_regularizer)
         self.upsample4 = UpSample(2)
 
-        self.upconv3 = UpConv(64, 3, 2, batch_normalize=True, kernel_regularizer=kernel_regularizer)
-        self.conv3 = Conv(64, 3, 1, padding=padding, activation=activation_fn, batch_normalize=True, kernel_regularizer=kernel_regularizer)
-        self.get_disp_resnet50_3 = GetDispResnet50(kernel_regularizer=kernel_regularizer)
+        self.upconv3 = UpConv(64, 3, 2, batch_normalize=True, kernel_regularizer=self.kernel_regularizer)
+        self.conv3 = Conv(64, 3, 1, padding=self.padding, activation=self.activation_fn, batch_normalize=True,
+                          kernel_regularizer=self.kernel_regularizer)
+        self.get_disp_resnet50_3 = GetDispResnet50(kernel_regularizer=self.kernel_regularizer)
         self.upsample3 = UpSample(2)
 
-        self.upconv2 = UpConv(32, 3, 2, batch_normalize=True, kernel_regularizer=kernel_regularizer)
-        self.conv2 = Conv(32, 3, 1, padding=padding, activation=activation_fn, batch_normalize=True, kernel_regularizer=kernel_regularizer)
-        self.get_disp_resnet50_2 = GetDispResnet50(kernel_regularizer=kernel_regularizer)
+        self.upconv2 = UpConv(32, 3, 2, batch_normalize=True, kernel_regularizer=self.kernel_regularizer)
+        self.conv2 = Conv(32, 3, 1, padding=self.padding, activation=self.activation_fn, batch_normalize=True,
+                          kernel_regularizer=self.kernel_regularizer)
+        self.get_disp_resnet50_2 = GetDispResnet50(kernel_regularizer=self.kernel_regularizer)
         self.upsample2 = UpSample(2)
 
-        self.upconv1 = UpConv(16, 3, 2, batch_normalize=True, kernel_regularizer=kernel_regularizer)
-        self.conv1 = Conv(16, 3, 1, padding=padding, activation=activation_fn, batch_normalize=True, kernel_regularizer=kernel_regularizer)
-        self.get_disp_resnet50_1 = GetDispResnet50(kernel_regularizer=kernel_regularizer)
+        self.upconv1 = UpConv(16, 3, 2, batch_normalize=True, kernel_regularizer=self.kernel_regularizer)
+        self.conv1 = Conv(16, 3, 1, padding=self.padding, activation=self.activation_fn, batch_normalize=True,
+                          kernel_regularizer=self.kernel_regularizer)
+        self.get_disp_resnet50_1 = GetDispResnet50(kernel_regularizer=self.kernel_regularizer)
 
     def call(self, inputs, training=None, mask=None):
         conv1 = self.conv(inputs, training=training)
@@ -113,11 +119,11 @@ class DispNet(Model):
         conv4 = self.resblock3(conv3, training=training)
         conv5 = self.resblock4(conv4, training=training)
 
-        skip1 = conv1 # 64, 208
-        skip2 = pool1 # 22 70
-        skip3 = conv2 # 11 35
-        skip4 = conv3 # 6 18
-        skip5 = conv4 # 3 9
+        skip1 = conv1  # 64, 208
+        skip2 = pool1  # 22 70
+        skip3 = conv2  # 11 35
+        skip4 = conv3  # 6 18
+        skip5 = conv4  # 3 9
 
         # Decoding
         upconv6 = self.upconv6(conv5, training=training)
@@ -153,6 +159,107 @@ class DispNet(Model):
         concat1 = tf.concat([upconv1, upred2], 3)
         iconv1 = self.conv1(concat1, training=training)
         pred1 = self.get_disp_resnet50_1(iconv1, training=training)
+
+        return [pred1, pred2, pred3, pred4]
+
+
+class FlowNet(Model):
+    def __init__(self):
+        super(FlowNet, self).__init__()
+        self.activation_fn = tf.nn.relu
+        self.kernel_regularizer = regularizers.l2(0.0001)
+        self.padding = 'valid'
+
+        self.conv = Conv(64, 7, 2, padding=self.padding, activation=self.activation_fn, batch_normalize=True,
+                         kernel_regularizer=self.kernel_regularizer)
+        self.maxpool = Maxpool(3, padding=self.padding)
+        self.resblock1 = ResBlock(64, 3, batch_normalize=True, kernel_regularizer=self.kernel_regularizer)
+        self.resblock2 = ResBlock(128, 4, batch_normalize=True, kernel_regularizer=self.kernel_regularizer)
+        self.resblock3 = ResBlock(256, 6, batch_normalize=True, kernel_regularizer=self.kernel_regularizer)
+        self.resblock4 = ResBlock(512, 3, batch_normalize=True, kernel_regularizer=self.kernel_regularizer)
+
+        self.upconv6 = UpConv(512, 3, 2, batch_normalize=True, kernel_regularizer=self.kernel_regularizer)
+        self.resize_like6 = ResizeLike()
+        self.conv6 = Conv(512, 3, 1, padding=self.padding, activation=self.activation_fn, batch_normalize=True,
+                          kernel_regularizer=self.kernel_regularizer)
+
+        self.upconv5 = UpConv(256, 3, 2, batch_normalize=True, kernel_regularizer=self.kernel_regularizer)
+        self.resize_like5 = ResizeLike()
+        self.conv5 = Conv(256, 3, 1, padding=self.padding, activation=self.activation_fn, batch_normalize=True,
+                          kernel_regularizer=self.kernel_regularizer)
+
+        self.upconv4 = UpConv(128, 3, 2, batch_normalize=True, kernel_regularizer=self.kernel_regularizer)
+        self.resize_like4 = ResizeLike()
+        self.conv4 = Conv(128, 3, 1, padding=self.padding, activation=self.activation_fn, batch_normalize=True,
+                          kernel_regularizer=self.kernel_regularizer)
+        self.get_flow_4 = GetFlow(kernel_regularizer=self.kernel_regularizer)
+        self.upsample4 = UpSample(2)
+
+        self.upconv3 = UpConv(64, 3, 2, batch_normalize=True, kernel_regularizer=self.kernel_regularizer)
+        self.conv3 = Conv(64, 3, 1, padding=self.padding, activation=self.activation_fn, batch_normalize=True,
+                          kernel_regularizer=self.kernel_regularizer)
+        self.get_flow_3 = GetFlow(kernel_regularizer=self.kernel_regularizer)
+        self.upsample3 = UpSample(2)
+
+        self.upconv2 = UpConv(32, 3, 2, batch_normalize=True, kernel_regularizer=self.kernel_regularizer)
+        self.conv2 = Conv(32, 3, 1, padding=self.padding, activation=self.activation_fn, batch_normalize=True,
+                          kernel_regularizer=self.kernel_regularizer)
+        self.get_flow_2 = GetFlow(kernel_regularizer=self.kernel_regularizer)
+        self.upsample2 = UpSample(2)
+
+        self.upconv1 = UpConv(16, 3, 2, batch_normalize=True, kernel_regularizer=self.kernel_regularizer)
+        self.conv1 = Conv(16, 3, 1, padding=self.padding, activation=self.activation_fn, batch_normalize=True,
+                          kernel_regularizer=self.kernel_regularizer)
+        self.get_flow_1 = GetFlow(kernel_regularizer=self.kernel_regularizer)
+
+    def call(self, inputs, training=None, mask=None):
+        conv1 = self.conv(inputs, training=training)
+        pool1 = self.maxpool(conv1)
+        conv2 = self.resblock1(pool1, training=training)
+        conv3 = self.resblock2(conv2, training=training)
+        conv4 = self.resblock3(conv3, training=training)
+        conv5 = self.resblock4(conv4, training=training)
+
+        skip1 = conv1  # 64, 208
+        skip2 = pool1  # 22 70
+        skip3 = conv2  # 11 35
+        skip4 = conv3  # 6 18
+        skip5 = conv4  # 3 9
+
+        # Decoding
+        upconv6 = self.upconv6(conv5, training=training)
+        upconv6 = self.resize_like6([upconv6, skip5])
+        concat6 = tf.concat([upconv6, skip5], 3)
+        iconv6 = self.conv6(concat6, training=training)
+
+        upconv5 = self.upconv5(iconv6, training=training)
+        upconv5 = self.resize_like5([upconv5, skip4])
+        concat5 = tf.concat([upconv5, skip4], 3)
+        iconv5 = self.conv5(concat5, training=training)
+
+        upconv4 = self.upconv4(iconv5, training=training)
+        upconv4 = self.resize_like4([upconv4, skip3])
+        concat4 = tf.concat([upconv4, skip3], 3)
+        iconv4 = self.conv4(concat4, training=training)
+        pred4 = self.get_flow_4(iconv4, training=training)
+        upred4 = self.upsample4(pred4)
+
+        upconv3 = self.upconv3(iconv4, training=training)
+        concat3 = tf.concat([upconv3, skip2, upred4], 3)
+        iconv3 = self.conv3(concat3, training=training)
+        pred3 = self.get_flow_3(iconv3, training=training)
+        upred3 = self.upsample3(pred3)
+
+        upconv2 = self.upconv2(iconv3, training=training)
+        concat2 = tf.concat([upconv2, skip1, upred3], 3)
+        iconv2 = self.conv2(concat2, training=training)
+        pred2 = self.get_flow_2(iconv2, training=training)
+        upred2 = self.upsample2(pred2)
+
+        upconv1 = self.upconv1(iconv2, training=training)
+        concat1 = tf.concat([upconv1, upred2], 3)
+        iconv1 = self.conv1(concat1, training=training)
+        pred1 = self.get_flow_1(iconv1, training=training)
 
         return [pred1, pred2, pred3, pred4]
 
@@ -212,6 +319,23 @@ class GetDispResnet50(layers.Layer):
 
     def call(self, x, training=None, mask=None):
         return self.DISP_SCALING_RESNET50 * self.conv(x, training=training) + 0.01
+
+
+class GetFlow(layers.Layer):
+    def __init__(self, kernel_regularizer):
+        super(GetFlow, self).__init__()
+        self.FLOW_SCALING = 0.1
+        self.kernel_regularizer = kernel_regularizer
+
+    def build(self, input_shape=None):
+        # TODO
+        # Check the defauls valude of layers.Conv2D
+        # ex) padding style
+        # slim.conv2d(x, 2, 3, 1, activation_fn=None, normalizer_fn=None) # padding defaults is 'SAME'
+        self.conv = layers.Conv2D(2, 3, 1, padding='same', activation=None, kernel_regularizer=self.kernel_regularizer)
+
+    def call(self, x, training=None, mask=None):
+        return self.FLOW_SCALING * self.conv(x)
 
 
 class ResizeLike(layers.Layer):

@@ -7,15 +7,15 @@ class DataLoader(object):
         self.FLAGS = FLAGS
 
         def _parse_function(img_filename, cam_filename):
-            tgt_image, src_image_stack = self.unpack_image_sequence(_img_parse_function(img_filename), self.FLAGS.img_height, self.FLAGS.img_width, self.FLAGS.num_source)
+            tgt_image, src_image_stack = self.unpack_image_sequence(_img_parse_function(img_filename), self.FLAGS['img_height'], self.FLAGS['img_width'], self.FLAGS['num_source'])
             intrinsics = _cam_parse_function(cam_filename)
 
             # Data augmentation
             image_all = tf.concat([tgt_image, src_image_stack], axis=2)
-            image_all, intrinsics = self.data_augmentation(image_all, intrinsics, self.FLAGS.img_height, self.FLAGS.img_width)
+            image_all, intrinsics = self.data_augmentation(image_all, intrinsics, self.FLAGS['img_height'], self.FLAGS['img_width'])
             tgt_image = image_all[:, :, :3]
             src_image_stack = image_all[:, :, 3:]
-            intrinsics = self.get_multi_scale_intrinsics(intrinsics, self.FLAGS.num_scales)
+            intrinsics = self.get_multi_scale_intrinsics(intrinsics, self.FLAGS['num_scales'])
 
             return src_image_stack, tgt_image, intrinsics
 
@@ -34,15 +34,15 @@ class DataLoader(object):
             return text_decoded
 
         # Load the list of training files into queues
-        file_list = self.format_file_list(self.FLAGS.dataset_dir, 'train')
+        file_list = self.format_file_list(self.FLAGS['dataset_dir'], 'train')
         img_filenames = tf.constant(file_list['image_file_list'])
         cam_filenames = tf.constant(file_list['cam_file_list'])
 
         self.dataset = tf.data.Dataset.from_tensor_slices((img_filenames, cam_filenames))
         self.dataset = self.dataset.map(_parse_function, num_parallel_calls=tf.data.experimental.AUTOTUNE)
-        self.dataset = self.dataset.shuffle(buffer_size=self.FLAGS.shuffle_buffer_size)
+        self.dataset = self.dataset.shuffle(buffer_size=self.FLAGS['shuffle_buffer_size'])
         self.dataset = self.dataset.repeat()
-        self.dataset = self.dataset.batch(self.FLAGS.batch_size)
+        self.dataset = self.dataset.batch(self.FLAGS['batch_size'])
         self.dataset = self.dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
         self.iter = iter(self.dataset)
 
