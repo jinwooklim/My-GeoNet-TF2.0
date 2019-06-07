@@ -10,6 +10,7 @@ from geonet_test_depth import *
 import matplotlib.pyplot as plt
 import cv2
 import sys
+import random
 sys.path.insert(0, './kitti_eval/flow_tool/')
 import flowlib as fl
 
@@ -94,6 +95,11 @@ def train():
         if len(os.listdir(FLAGS['checkpoint_dir'])) > 0:
             print("Notice : Please remove exist checkpoints")
             exit()
+
+    seed = 8964
+    tf.random.set_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
 
     data_loader = DataLoader(FLAGS)
     adm_optimizer = tf.optimizers.Adam(FLAGS['learning_rate'], 0.9)
