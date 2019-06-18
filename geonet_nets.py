@@ -284,10 +284,15 @@ class Conv(layers.Layer):
     def build(self, input_shape):
         self.conv = layers.Conv2D(self.num_layers, self.kernel_size, self.stride, self.padding, activation=self.activation, kernel_regularizer=self.kernel_regularizer)
         if self.batch_normalize:
-            self.bn = layers.BatchNormalization(scale=False)
+            self.bn = layers.BatchNormalization() # scale=False
+            '''
+            scale: If True, multiply by gamma. 
+            If False, gamma is not used. 
+            When the next layer is linear (also e.g. nn.relu), 
+            this can be disabled since the scaling will be done by the next layer.
+            '''
 
     def call(self, x, training=None, mask=None):
-        # p = np.floor((self.kernel_size - 1) / 2).astype(np.int32)
         p = tf.cast(tf.math.floor((self.kernel_size - 1) / 2), dtype=tf.int32)
         p_x = tf.pad(x, [[0, 0], [p, p], [p, p], [0, 0]])
         p_x = self.conv(p_x)
@@ -307,7 +312,6 @@ class Maxpool(layers.Layer):
         self.maxpool = layers.MaxPool2D(self.pool_size, self.stride, self.padding)
 
     def call(self, x, training=None, mask=None):
-        # p = np.floor((self.pool_size - 1) / 2).astype(np.int32)
         p = tf.cast(tf.math.floor((self.pool_size - 1) / 2), dtype=tf.int32)
         p_x = tf.pad(x, [[0, 0], [p, p], [p, p], [0, 0]])
         p_x = self.maxpool(p_x)
@@ -355,6 +359,8 @@ class ResizeLike(layers.Layer):
         inputs, ref = x
         iH, iW = inputs.get_shape()[1], inputs.get_shape()[2]
         rH, rW = ref.get_shape()[1], ref.get_shape()[2]
+        if iH == rH and iW == rW:
+            return inputs
         return tf.image.resize(inputs, [rH, rW], method=tf.image.ResizeMethod.NEAREST_NEIGHBOR)
 
 
