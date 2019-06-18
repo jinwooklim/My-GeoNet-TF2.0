@@ -14,7 +14,7 @@ def test_depth(FLAGS):
     if not os.path.exists(FLAGS['output_dir']):
         os.makedirs(FLAGS['output_dir'])
 
-    geonet = GeoNet(FLAGS['num_scales'], FLAGS['num_source'], FLAGS['alpha_recon_image'])
+    geonet = GeoNet(FLAGS)
 
     checkpoint_path = os.path.join(FLAGS['init_ckpt_file'])
     geonet.load_weights(checkpoint_path)

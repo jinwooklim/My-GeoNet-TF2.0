@@ -14,13 +14,13 @@ def test_pose(FLAGS):
     if not os.path.isdir(FLAGS['output_dir']):
         os.makedirs(FLAGS['output_dir'])
 
-    geonet = GeoNet(FLAGS['num_scales'], FLAGS['num_source'], FLAGS['alpha_recon_image'])
+    geonet = GeoNet(FLAGS)
 
     ##### load test frames #####
     seq_dir = os.path.join(FLAGS['dataset_dir'], 'sequences', '%.2d' % FLAGS['pose_test_seq'])
     img_dir = os.path.join(seq_dir, 'image_2')
     N = len(glob(img_dir + '/*.png'))
-    test_frames = ['%.2d %.6d' % (FLAGS.pose_test_seq, n) for n in range(N)]
+    test_frames = ['%.2d %.6d' % (FLAGS['pose_test_seq'], n) for n in range(N)]
 
     ##### load time file #####
     with open(FLAGS['dataset_dir'] + '/sequences/%.2d/times.txt' % FLAGS['pose_test_seq'], 'r') as f:

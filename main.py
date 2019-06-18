@@ -36,7 +36,7 @@ parser.add_argument('--summary_dir', type=str, default='./summary/', help='summa
 parser.add_argument('--save_summary_freq', type=int, default=500)
 
 parser.add_argument('--learning_rate', type=float, default=0.0002)
-parser.add_argument('--max_steps', type=int, default=600000)
+parser.add_argument('--max_steps', type=int, default=300100)
 parser.add_argument('--alpha_recon_image', type=float, default=0.85)
 parser.add_argument('--rigid_warp_weight', type=float, default=1.0)
 parser.add_argument('--disp_smooth_weight', type=float, default=0.5)

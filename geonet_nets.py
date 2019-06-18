@@ -7,39 +7,39 @@ class PoseNet(Model):
     def __init__(self, num_source):
         super(PoseNet, self).__init__()
         self.num_source = num_source
-        kernel_regularizer = regularizers.l2(0.0001)
-        padding = 'same'
-        activation_fn = tf.nn.relu
+        self.kernel_regularizer = regularizers.l2(0.0001)
+        self.padding = 'same'
+        self.activation_fn = tf.nn.relu
 
-        self.conv1 = layers.Conv2D(16, 7, 2, padding=padding, kernel_regularizer=kernel_regularizer,
-                                       activation=activation_fn)
+        self.conv1 = layers.Conv2D(16, 7, 2, padding=self.padding, kernel_regularizer=self.kernel_regularizer,
+                                       activation=self.activation_fn)
         self.bn1 = layers.BatchNormalization(scale=False)
 
-        self.conv2 = layers.Conv2D(32, 5, 2, padding=padding, kernel_regularizer=kernel_regularizer,
-                                       activation=activation_fn)
+        self.conv2 = layers.Conv2D(32, 5, 2, padding=self.padding, kernel_regularizer=self.kernel_regularizer,
+                                       activation=self.activation_fn)
         self.bn2 = layers.BatchNormalization(scale=False)
 
-        self.conv3 = layers.Conv2D(64, 3, 2, padding=padding, kernel_regularizer=kernel_regularizer,
-                                       activation=activation_fn)
+        self.conv3 = layers.Conv2D(64, 3, 2, padding=self.padding, kernel_regularizer=self.kernel_regularizer,
+                                       activation=self.activation_fn)
         self.bn3 = layers.BatchNormalization(scale=False)
 
-        self.conv4 = layers.Conv2D(128, 3, 2, padding=padding, kernel_regularizer=kernel_regularizer,
-                                       activation=activation_fn)
+        self.conv4 = layers.Conv2D(128, 3, 2, padding=self.padding, kernel_regularizer=self.kernel_regularizer,
+                                       activation=self.activation_fn)
         self.bn4 = layers.BatchNormalization(scale=False)
 
-        self.conv5 = layers.Conv2D(256, 3, 2, padding=padding, kernel_regularizer=kernel_regularizer,
-                                       activation=activation_fn)
+        self.conv5 = layers.Conv2D(256, 3, 2, padding=self.padding, kernel_regularizer=self.kernel_regularizer,
+                                       activation=self.activation_fn)
         self.bn5 = layers.BatchNormalization(scale=False)
 
-        self.conv6 = layers.Conv2D(256, 3, 2, padding=padding, kernel_regularizer=kernel_regularizer,
-                                       activation=activation_fn)
+        self.conv6 = layers.Conv2D(256, 3, 2, padding=self.padding, kernel_regularizer=self.kernel_regularizer,
+                                       activation=self.activation_fn)
         self.bn6 = layers.BatchNormalization(scale=False)
 
-        self.conv7 = layers.Conv2D(256, 3, 2, padding=padding, kernel_regularizer=kernel_regularizer,
-                                       activation=activation_fn)
+        self.conv7 = layers.Conv2D(256, 3, 2, padding=self.padding, kernel_regularizer=self.kernel_regularizer,
+                                       activation=self.activation_fn)
         self.bn7 = layers.BatchNormalization(scale=False)
 
-        self.pose_pred = layers.Conv2D(6 * self.num_source, (1, 1), (1, 1), padding=padding, kernel_regularizer=kernel_regularizer, activation=None)
+        self.pose_pred = layers.Conv2D(6 * self.num_source, (1, 1), (1, 1), padding=self.padding, kernel_regularizer=self.kernel_regularizer, activation=None)
 
     def call(self, inputs, training=None, mask=None):
         x = self.conv1(inputs)
