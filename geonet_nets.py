@@ -13,33 +13,39 @@ class PoseNet(Model):
 
         self.conv1 = layers.Conv2D(16, 7, 2, padding=self.padding, kernel_regularizer=self.kernel_regularizer,
                                        activation=self.activation_fn)
-        self.bn1 = layers.BatchNormalization(scale=False)
+        self.bn1 = layers.BatchNormalization() # scale=False
+        '''
+        scale: If True, multiply by gamma. 
+        If False, gamma is not used. 
+        When the next layer is linear (also e.g. nn.relu), 
+        this can be disabled since the scaling will be done by the next layer.
+        '''
 
         self.conv2 = layers.Conv2D(32, 5, 2, padding=self.padding, kernel_regularizer=self.kernel_regularizer,
                                        activation=self.activation_fn)
-        self.bn2 = layers.BatchNormalization(scale=False)
+        self.bn2 = layers.BatchNormalization()
 
         self.conv3 = layers.Conv2D(64, 3, 2, padding=self.padding, kernel_regularizer=self.kernel_regularizer,
                                        activation=self.activation_fn)
-        self.bn3 = layers.BatchNormalization(scale=False)
+        self.bn3 = layers.BatchNormalization()
 
         self.conv4 = layers.Conv2D(128, 3, 2, padding=self.padding, kernel_regularizer=self.kernel_regularizer,
                                        activation=self.activation_fn)
-        self.bn4 = layers.BatchNormalization(scale=False)
+        self.bn4 = layers.BatchNormalization()
 
         self.conv5 = layers.Conv2D(256, 3, 2, padding=self.padding, kernel_regularizer=self.kernel_regularizer,
                                        activation=self.activation_fn)
-        self.bn5 = layers.BatchNormalization(scale=False)
+        self.bn5 = layers.BatchNormalization()
 
         self.conv6 = layers.Conv2D(256, 3, 2, padding=self.padding, kernel_regularizer=self.kernel_regularizer,
                                        activation=self.activation_fn)
-        self.bn6 = layers.BatchNormalization(scale=False)
+        self.bn6 = layers.BatchNormalization()
 
         self.conv7 = layers.Conv2D(256, 3, 2, padding=self.padding, kernel_regularizer=self.kernel_regularizer,
                                        activation=self.activation_fn)
-        self.bn7 = layers.BatchNormalization(scale=False)
+        self.bn7 = layers.BatchNormalization()
 
-        self.pose_pred = layers.Conv2D(6 * self.num_source, (1, 1), (1, 1), padding=self.padding, kernel_regularizer=self.kernel_regularizer, activation=None)
+        self.pose_pred = layers.Conv2D(6 * self.num_source, 1, 1, padding=self.padding, kernel_regularizer=self.kernel_regularizer, activation=None)
 
     def call(self, inputs, training=None, mask=None):
         x = self.conv1(inputs)
