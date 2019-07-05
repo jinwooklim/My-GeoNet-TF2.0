@@ -56,101 +56,6 @@ FLAGS = vars(FLAGS) # Convert Namespace object to vars object
 
 
 @tf.function
-def make_intrinsics_matrix(fx, fy, cx, cy):
-    # Assumes batch input
-    batch_size = fx.get_shape().as_list()[0]
-    zeros = tf.zeros_like(fx)
-    r1 = tf.stack([fx, zeros, cx], axis=1)
-    r2 = tf.stack([zeros, fy, cy], axis=1)
-    r3 = tf.constant([0., 0., 1.], shape=[1, 3])
-    r3 = tf.tile(r3, [batch_size, 1])
-    intrinsics = tf.stack([r1, r2, r3], axis=1)
-    return intrinsics
-
-
-@tf.function
-def get_multi_scale_intrinsics(intrinsics, num_scales):
-    intrinsics_mscale = []
-    # Scale the intrinsics accordingly for each scale
-    for s in range(num_scales):
-        fx = intrinsics[:, 0, 0] / (2 ** s)
-        fy = intrinsics[:, 1, 1] / (2 ** s)
-        cx = intrinsics[:, 0, 2] / (2 ** s)
-        cy = intrinsics[:, 1, 2] / (2 ** s)
-        intrinsics_mscale.append(
-            make_intrinsics_matrix(fx, fy, cx, cy))
-    intrinsics_mscale = tf.stack(intrinsics_mscale, axis=1)
-    return intrinsics_mscale
-
-
-@tf.function
-def data_augmentation(im, intrinsics, out_h, out_w):
-    # Random scaling
-    def random_scaling(im, intrinsics):
-        batch_size, in_h, in_w, _ = im.get_shape().as_list()
-        scaling = tf.random.uniform([2], 1, 1.15)
-        x_scaling = scaling[0]
-        y_scaling = scaling[1]
-        out_h = tf.cast(in_h * y_scaling, dtype=tf.int32)
-        out_w = tf.cast(in_w * x_scaling, dtype=tf.int32)
-        im = tf.image.resize(im, [out_h, out_w])
-        fx = intrinsics[:, 0, 0] * x_scaling
-        fy = intrinsics[:, 1, 1] * y_scaling
-        cx = intrinsics[:, 0, 2] * x_scaling
-        cy = intrinsics[:, 1, 2] * y_scaling
-        intrinsics = make_intrinsics_matrix(fx, fy, cx, cy)
-        return im, intrinsics
-
-    # Random cropping
-    def random_cropping(im, intrinsics, out_h, out_w):
-        # batch_size, in_h, in_w, _ = im.get_shape().as_list()
-        batch_size, in_h, in_w, _ = tf.unstack(tf.shape(im))
-        offset_y = tf.random.uniform([1], 0, in_h - out_h + 1, dtype=tf.int32)[0]
-        offset_x = tf.random.uniform([1], 0, in_w - out_w + 1, dtype=tf.int32)[0]
-        im = tf.image.crop_to_bounding_box(
-            im, offset_y, offset_x, out_h, out_w)
-        fx = intrinsics[:, 0, 0]
-        fy = intrinsics[:, 1, 1]
-        cx = intrinsics[:, 0, 2] - tf.cast(offset_x, dtype=tf.float32)
-        cy = intrinsics[:, 1, 2] - tf.cast(offset_y, dtype=tf.float32)
-        intrinsics = make_intrinsics_matrix(fx, fy, cx, cy)
-        return im, intrinsics
-
-    # Random coloring
-    def random_coloring(im):
-        batch_size, in_h, in_w, in_c = im.get_shape().as_list()
-        im_f = tf.image.convert_image_dtype(im, tf.float32)
-
-        # randomly shift gamma
-        random_gamma = tf.random.uniform([], 0.8, 1.2)
-        im_aug = im_f ** random_gamma
-
-        # randomly shift brightness
-        random_brightness = tf.random.uniform([], 0.5, 2.0)
-        im_aug = im_aug * random_brightness
-
-        # randomly shift color
-        random_colors = tf.random.uniform([in_c], 0.8, 1.2)
-        white = tf.ones([batch_size, in_h, in_w])
-        color_image = tf.stack([white * random_colors[i] for i in range(in_c)], axis=3)
-        im_aug *= color_image
-
-        # saturate
-        im_aug = tf.clip_by_value(im_aug, 0, 1)
-
-        im_aug = tf.image.convert_image_dtype(im_aug, tf.uint8)
-
-        return im_aug
-
-    im, intrinsics = random_scaling(im, intrinsics)
-    im, intrinsics = random_cropping(im, intrinsics, out_h, out_w)
-    im = tf.cast(im, dtype=tf.uint8)
-    do_augment = tf.random.uniform([], 0, 1)
-    im = tf.cond(do_augment > 0.5, lambda: random_coloring(im), lambda: im)
-    return im, intrinsics
-
-
-@tf.function
 def deprocess_image(image):
     # Assuming input image is float32
     image = (image + 1.)/2.
@@ -209,13 +114,6 @@ def train():
         start_time = time.time()
         for step in range(FLAGS['max_steps']):
             src_image_stack, tgt_image, intrinsics = next(data_loader.iter)
-
-            # Data augmentation
-            image_all = tf.concat([tgt_image, src_image_stack], axis=3)
-            image_all, intrinsics = data_augmentation(image_all, intrinsics, FLAGS['img_height'], FLAGS['img_width'])
-            tgt_image = image_all[:, :, :, :3]
-            src_image_stack = image_all[:, :, :, 3:]
-            intrinsics = get_multi_scale_intrinsics(intrinsics, FLAGS['num_scales'])
 
             with tf.GradientTape() as tape:
                 if FLAGS['mode'] == 'train_rigid':

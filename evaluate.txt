@@ -1,0 +1,31 @@
+### Pose task: using KITTI odometry dataset
+## Ground Truth (6) seq == 09
+python kitti_eval/generate_pose_snippets.py --dataset_dir=D:\\PROJECT\\smartcar\\KITTI_odometry\\dataset\\ --output_dir=D:\PROJECT\smartcar\pose_gtruth_snippets_seq09\ --seq_id=09 --seq_length=3
+## Ground Truth (6) seq == 10
+python kitti_eval/generate_pose_snippets.py --dataset_dir=D:\\PROJECT\\smartcar\\KITTI_odometry\\dataset\\ --output_dir=D:\PROJECT\smartcar\pose_gtruth_snippets_seq10\ --seq_id=10 --seq_length=3
+
+
+
+
+
+
+### Sequence 09
+## Windows obd -> posenet(6)
+python kitti_eval/eval_pose.py --gtruth_dir=D:\\PROJECT\\smartcar\\pose_gtruth_snippets_seq09\\ --pred_dir=./predictions/pose/posenet_seq09/
+
+
+### Sequence 10
+## Windows obd -> posenet(6)
+python kitti_eval/eval_pose.py --gtruth_dir=D:\\PROJECT\\smartcar\\pose_gtruth_snippets_seq10\\ --pred_dir=./predictions/pose/posenet_seq10/
+
+
+
+
+
+
+python kitti_eval/eval_depth.py --kitti_dir=D:\PROJECT\smartcar\raw\ --pred_file=./predictions/depth/depthnet_seq09/iter-500000.npy
+
+python kitti_eval/eval_depth.py --kitti_dir=D:\PROJECT\smartcar\raw\ --pred_file=./predictions/depth/depthnet_seq10/iter-500000.npy
+
+
+
