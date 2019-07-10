@@ -61,7 +61,7 @@ if __name__ == "__main__":
     pp.pprint(FLAGS)
 
     if FLAGS['mode'] == "train_rigid":
-        train(FLAGS)
+        train()
     elif FLAGS['mode'] == 'train_flow':
         # train_flow(FLAGS)
         pass

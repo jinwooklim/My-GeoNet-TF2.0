@@ -52,6 +52,10 @@ parser.add_argument('--pose_test_seq', type=int, default=9)
 FLAGS = parser.parse_args()
 FLAGS = vars(FLAGS) # Convert Namespace object to vars object
 
+data_loader = DataLoader(FLAGS)
+adm_optimizer = tf.optimizers.Adam(FLAGS['learning_rate'], 0.9)
+geonet = GeoNet(FLAGS)
+
 
 @tf.function
 def deprocess_image(image):
@@ -84,12 +88,6 @@ def normalize_depth_for_display(depth, pc=95, crop_percent=0, normalizer=None,
 
     disp = tf.squeeze(disp)
     return disp
-
-
-data_loader = DataLoader(FLAGS)
-adm_optimizer = tf.optimizers.Adam(FLAGS['learning_rate'], 0.9)
-geonet = GeoNet(FLAGS)
-summary_writer = tf.summary.create_file_writer(FLAGS['summary_dir'])
 
 
 @tf.function
@@ -149,13 +147,15 @@ def train_flow_step(src_image_stack, tgt_image, intrinsics):
         fwd_flow_diff_pyramid, bwd_flow_diff_pyramid
 
 
-def train(FLAGS):
+def train():
     if not (os.path.exists(FLAGS['checkpoint_dir']) and FLAGS['mode'] == 'train_rigid'):
         os.makedirs(FLAGS['checkpoint_dir'])
     else:
         if len(os.listdir(FLAGS['checkpoint_dir'])) > 0:
             print("Notice : Please remove exist checkpoints")
             exit()
+
+    summary_writer = tf.summary.create_file_writer(FLAGS['summary_dir'])
 
     if FLAGS['mode'] == 'train_flow':
         checkpoint_path = os.path.join(FLAGS['init_ckpt_file'])
@@ -279,3 +279,7 @@ def train(FLAGS):
                     save_path = FLAGS['checkpoint_dir'] + "iter-" + str(step)
                     geonet.save_weights(save_path)
                     print("Saved checkpoint for step {}: {}".format(step, FLAGS['checkpoint_dir']))
+
+
+if __name__ == "__main__":
+    train()
