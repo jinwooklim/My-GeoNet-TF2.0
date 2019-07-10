@@ -57,8 +57,10 @@ FLAGS = vars(FLAGS) # Convert Namespace object to vars object
 
 @tf.function
 def batch_data_augmentation(FLAGS, src_image_stack, tgt_image, intrinsics):
+    @tf.function
     def data_augmentation(im, intrinsics, out_h, out_w):
         # Random scaling
+        @tf.function
         def random_scaling(im, intrinsics):
             batch_size, in_h, in_w, _ = im.get_shape().as_list()
             scaling = tf.random.uniform([2], 1, 1.15)
@@ -75,6 +77,7 @@ def batch_data_augmentation(FLAGS, src_image_stack, tgt_image, intrinsics):
             return im, intrinsics
 
         # Random cropping
+        @tf.function
         def random_cropping(im, intrinsics, out_h, out_w):
             # batch_size, in_h, in_w, _ = im.get_shape().as_list()
             batch_size, in_h, in_w, _ = tf.unstack(tf.shape(im))
@@ -90,6 +93,7 @@ def batch_data_augmentation(FLAGS, src_image_stack, tgt_image, intrinsics):
             return im, intrinsics
 
         # Random coloring
+        @tf.function
         def random_coloring(im):
             batch_size, in_h, in_w, in_c = im.get_shape().as_list()
             im_f = tf.image.convert_image_dtype(im, tf.float32)
@@ -122,6 +126,7 @@ def batch_data_augmentation(FLAGS, src_image_stack, tgt_image, intrinsics):
         im = tf.cond(do_augment > 0.5, lambda: random_coloring(im), lambda: im)
         return im, intrinsics
 
+    @tf.function
     def make_intrinsics_matrix(fx, fy, cx, cy):
         # Assumes batch input
         batch_size = fx.get_shape().as_list()[0]
@@ -133,6 +138,7 @@ def batch_data_augmentation(FLAGS, src_image_stack, tgt_image, intrinsics):
         intrinsics = tf.stack([r1, r2, r3], axis=1)
         return intrinsics
 
+    @tf.function
     def get_multi_scale_intrinsics(intrinsics, num_scales):
         intrinsics_mscale = []
         # Scale the intrinsics accordingly for each scale
