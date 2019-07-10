@@ -56,7 +56,7 @@ FLAGS = vars(FLAGS) # Convert Namespace object to vars object
 
 
 @tf.function
-def data_augment(FLAGS, src_image_stack, tgt_image, intrinsics):
+def batch_data_augmentation(FLAGS, src_image_stack, tgt_image, intrinsics):
     def data_augmentation(im, intrinsics, out_h, out_w):
         # Random scaling
         def random_scaling(im, intrinsics):
@@ -215,7 +215,7 @@ def train():
             src_image_stack, tgt_image, intrinsics = next(data_loader.iter)
 
             # Data augmentation
-            src_image_stack, tgt_image, intrinsics = data_augment(FLAGS, src_image_stack, tgt_image, intrinsics)
+            src_image_stack, tgt_image, intrinsics = batch_data_augmentation(FLAGS, src_image_stack, tgt_image, intrinsics)
 
             with tf.GradientTape() as tape:
                 if FLAGS['mode'] == 'train_rigid':
