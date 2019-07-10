@@ -41,7 +41,6 @@ class DataLoader(object):
         self.dataset = self.dataset.prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
         self.iter = iter(self.dataset)
 
-    @tf.function
     def format_file_list(self, data_root, split):
         with open(data_root + '/%s.txt' % split, 'r') as f:
             frames = f.readlines()
