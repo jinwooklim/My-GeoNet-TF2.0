@@ -5,7 +5,7 @@ import pprint
 import argparse
 from data_loader import DataLoader
 from geonet_model import *
-from geonet_train import *
+# from geonet_train import *
 from geonet_test_pose import *
 from geonet_test_depth import *
 import matplotlib.pyplot as plt
@@ -60,9 +60,7 @@ if __name__ == "__main__":
     pp = pprint.PrettyPrinter()
     pp.pprint(FLAGS)
 
-    if FLAGS['mode'] == "train_rigid":
-        train()
-    elif FLAGS['mode'] == 'train_flow':
+    if FLAGS['mode'] == 'train_flow':
         # train_flow(FLAGS)
         pass
     elif FLAGS['mode'] == "test_pose":
