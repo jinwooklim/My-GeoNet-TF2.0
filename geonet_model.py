@@ -3,7 +3,6 @@ from utils import *
 import tensorflow as tf
 
 
-@tf.function
 def scale_pyramid(img, num_scales):
     if img == None:
         return None
@@ -18,7 +17,6 @@ def scale_pyramid(img, num_scales):
     return scaled_imgs
 
 
-@tf.function
 def spatial_normalize(disp):
     _, curr_h, curr_w, curr_c = disp.get_shape().as_list()
     disp_mean = tf.reduce_mean(disp, axis=[1, 2, 3], keep_dims=True)
@@ -26,7 +24,6 @@ def spatial_normalize(disp):
     return disp/disp_mean
 
 
-@tf.function
 def SSIM(x, y):
     C1 = 0.01 ** 2
     C2 = 0.03 ** 2
@@ -46,12 +43,10 @@ def SSIM(x, y):
     return tf.clip_by_value((1 - SSIM) / 2, 0, 1)
 
 
-@tf.function
 def image_similarity(alpha_recon_image, x, y):
     return (alpha_recon_image * SSIM(x, y)) + ((1.0 - alpha_recon_image) * tf.abs(x-y))
 
 
-@tf.function
 def L2_norm(x, axis=3, keepdims=True):
     curr_offset = 1e-10
     l2_norm = tf.norm(tf.abs(x) + curr_offset, axis=axis, keepdims=keepdims)
@@ -61,7 +56,6 @@ def L2_norm(x, axis=3, keepdims=True):
 '''
 TODO : Convert tf.function -> tf.keras.Model
 '''
-@tf.function
 def build_rigid_flow_warping(num_scales, num_source, alpha_recon_image,
                              src_image_concat_pyramid, tgt_image_tile_pyramid,
                              pred_depth, intrinsics, pred_poses):
@@ -97,19 +91,16 @@ def build_rigid_flow_warping(num_scales, num_source, alpha_recon_image,
     return fwd_rigid_error_pyramid, bwd_rigid_error_pyramid, fwd_rigid_warp_pyramid, bwd_rigid_warp_pyramid, fwd_rigid_flow_pyramid, bwd_rigid_flow_pyramid
 
 
-@tf.function
 def gradient_x(img):
     gx = img[:, :, :-1, :] - img[:, :, 1:, :]
     return gx
 
 
-@tf.function
 def gradient_y(img):
     gy = img[:, :-1, :, :] - img[:, 1:, :, :]
     return gy
 
 
-@tf.function
 def compute_smooth_loss(disp, img):
     disp_gradients_x = gradient_x(disp)
     disp_gradients_y = gradient_y(disp)
@@ -126,7 +117,6 @@ def compute_smooth_loss(disp, img):
     return tf.reduce_mean(tf.abs(smoothness_x)) + tf.reduce_mean(tf.abs(smoothness_y))
 
 
-@tf.function
 def build_full_flow_warping(num_scales, alpha_recon_image,
                             src_image_concat_pyramid, tgt_image_tile_pyramid,
                             fwd_full_flow_pyramid, bwd_full_flow_pyramid):
@@ -146,7 +136,6 @@ def build_full_flow_warping(num_scales, alpha_recon_image,
     return fwd_full_warp_pyramid, bwd_full_warp_pyramid, fwd_full_error_pyramid, bwd_full_error_pyramid
 
 
-@tf.function
 def build_flow_consistency(num_scales, flow_consistency_alpha, flow_consistency_beta, fwd_full_flow_pyramid, bwd_full_flow_pyramid):
     # warp pyramid full flow
     bwd2fwd_flow_pyramid = [flow_warp(bwd_full_flow_pyramid[s], fwd_full_flow_pyramid[s]) \
@@ -179,7 +168,6 @@ def build_flow_consistency(num_scales, flow_consistency_alpha, flow_consistency_
     return noc_masks_tgt, noc_masks_src, fwd_flow_diff_pyramid, bwd_flow_diff_pyramid
 
 
-@tf.function
 def rigid_losses(num_scales, num_source, rigid_warp_weight, disp_smooth_weight,
                  tgt_image_pyramid, src_image_concat_pyramid,
                  fwd_rigid_error_pyramid, bwd_rigid_error_pyramid,
@@ -206,7 +194,6 @@ def rigid_losses(num_scales, num_source, rigid_warp_weight, disp_smooth_weight,
     return total_loss
 
 
-@tf.function
 def flow_losses(num_scales, num_source, flow_warp_weight, flow_consistency_weight, flow_smooth_weight,
                 fwd_full_flow_pyramid, bwd_full_flow_pyramid,
                 fwd_full_error_pyramid, bwd_full_error_pyramid,
@@ -257,7 +244,6 @@ def flow_losses(num_scales, num_source, flow_warp_weight, flow_consistency_weigh
         return total_loss
 
 
-@tf.function
 def preprocess_image(image):
     # Assuming input image is uint8
     if image == None:
@@ -267,7 +253,6 @@ def preprocess_image(image):
         return image * 2. - 1.
 
 
-@tf.function
 def compute_flow_smooth_loss(flow, img):
     smoothness = 0
     for i in range(2):
